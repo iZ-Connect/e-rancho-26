@@ -5,27 +5,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>E-Rancho | Gestão Militar</title>
+
+  <!-- Fonte Google -->
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap"
     rel="stylesheet">
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            primary: '#1152d4',
-            secondary: '#1e293b',
-            background: '#0f172a',
-            surface: '#1e293b',
-            'military-green': '#4b5320',
-          },
-          fontFamily: {
-            sans: ['Public Sans', 'sans-serif'],
-          }
-        }
-      }
-    }
-  </script>
+
+  <!-- CSS principal compilado pelo Tailwind -->
+  <link rel="stylesheet" href="/index.css">
+
+  <!-- Scrollbar customizado e vidro -->
   <style>
     body {
       font-family: 'Public Sans', sans-serif;
@@ -53,22 +41,25 @@
       border-radius: 4px;
     }
   </style>
+
+  <!-- Import map para módulos via ESM -->
   <script type="importmap">
-{
-  "imports": {
-    "recharts": "https://esm.sh/recharts@^3.7.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4"
+  {
+    "imports": {
+      "recharts": "https://esm.sh/recharts@^3.7.0",
+      "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+      "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+      "react/": "https://esm.sh/react@^19.2.4/",
+      "react": "https://esm.sh/react@^19.2.4"
+    }
   }
-}
-</script>
-  <link rel="stylesheet" href="/index.css">
+  </script>
 </head>
 
 <body>
   <div id="root"></div>
+
+  <!-- Entrada principal do app -->
   <script type="module" src="/index.tsx"></script>
 </body>
 
