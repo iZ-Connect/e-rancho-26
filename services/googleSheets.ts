@@ -1,17 +1,17 @@
 import Papa from 'papaparse';
-import { Militar, UserRole } from '../types';
+import { Militar, Role } from '../types';
 
 const SHEET_URL =
   'https://docs.google.com/spreadsheets/d/16xwdOjGn8Xv5uhykgedVWsfKM-K5_ADkVSo3OlvM4LA/export?format=csv';
 
-function mapUserRole(sheetRole: string): UserRole {
+function mapUserRole(sheetRole: string): Role {
   const role = (sheetRole || '').trim().toLowerCase();
 
-  if (['fiscal do dia', 'adm local', 'adm geral', 'admin'].includes(role)) {
-    return UserRole.ADMIN;
-  }
+  if (role.includes('adm geral')) return Role.ADM_GERAL;
+  if (role.includes('adm local')) return Role.ADM_LOCAL;
+  if (role.includes('fiscal')) return Role.FISCAL;
 
-  return UserRole.MILITARY;
+  return Role.MILITAR;
 }
 
 export async function fetchUsersFromSheet(): Promise<Militar[]> {
@@ -28,13 +28,6 @@ export async function fetchUsersFromSheet(): Promise<Militar[]> {
           const users: Militar[] = results.data
             .filter((row: any) => row['CPF'])
             .map((row: any) => {
-              const name =
-                row['Nome de Guerra'] ||
-                row['Nome Completo'] ||
-                'Militar';
-
-              const avatarUrl =
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff`;
 
               const isActive =
                 row['Ativo?'] === 'TRUE' ||
@@ -49,15 +42,14 @@ export async function fetchUsersFromSheet(): Promise<Militar[]> {
                   .replace(/\D/g, '')
                   .padStart(11, '0'),
 
-                name: row['Nome Completo'] || '',
-                warName: row['Nome de Guerra'] || '',
-                rank: row['Posto'] || '',
-                sector: row['Setor'] || '',
+                nomeCompleto: row['Nome Completo'] || '',
+                nomeGuerra: row['Nome de Guerra'] || '',
+                posto: row['Posto'] || '',
+                setor: row['Setor'] || '',
 
                 role: mapUserRole(row['Usuário']),
 
-                avatarUrl,
-                active: isActive,
+                ativo: isActive,
 
                 pin: String(row['PIN'] || '1234')
               };
