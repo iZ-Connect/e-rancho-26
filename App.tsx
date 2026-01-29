@@ -117,12 +117,11 @@ const App: React.FC = () => {
       onLogout={handleLogout}
     >
       <div className="p-4 md:p-6 h-full overflow-auto">
-        {/* Renderização Condicional das Abas */}
+        {/* Lógica que decide qual tela mostrar */}
         {activeTab === 'dashboard' && (
           <Dashboard
             militares={militares}
             arranchamentos={arranchamentos}
-            especial={especial}
           />
         )}
 
@@ -140,9 +139,11 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* Adicione aqui os outros componentes (Cardápio, Especial, etc.) */}
-        {activeTab === 'cardapio' && (
-          <div className="glass p-6 rounded-xl">Conteúdo do Cardápio</div>
+        {/* Fallback caso a aba ainda não exista */}
+        {!['dashboard', 'arranchamento', 'presenca'].includes(activeTab) && (
+          <div className="flex items-center justify-center h-64 glass rounded-2xl">
+            <p className="text-gray-400">Módulo "{activeTab}" em desenvolvimento.</p>
+          </div>
         )}
       </div>
     </Layout>

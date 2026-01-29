@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "push": "git add . && git commit -m \"Update\" && git push"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
