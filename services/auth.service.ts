@@ -17,7 +17,7 @@ export async function login(
       u =>
         u.cpf === cleanCpf &&
         String(u.pin) === String(pin) &&
-        u.active
+        u.ativo // ✅ Corrigido de 'active' para 'ativo'
     );
 
     if (!user) return null;
