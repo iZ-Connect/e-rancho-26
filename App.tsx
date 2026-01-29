@@ -110,8 +110,41 @@ const App: React.FC = () => {
   }
 
   return (
-    <Layout user={auth.user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout}>
-      {/* ... restante do seu JSX permanece igual ... */}
+    <Layout
+      user={auth.user}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      onLogout={handleLogout}
+    >
+      <div className="p-4 md:p-6 h-full overflow-auto">
+        {/* Renderização Condicional das Abas */}
+        {activeTab === 'dashboard' && (
+          <Dashboard
+            militares={militares}
+            arranchamentos={arranchamentos}
+            especial={especial}
+          />
+        )}
+
+        {activeTab === 'arranchamento' && (
+          <CalendarView
+            militares={militares}
+            onToggle={toggleArranchamento}
+          />
+        )}
+
+        {activeTab === 'presenca' && (
+          <Presence
+            arranchamentos={arranchamentos}
+            onToggle={handleTogglePresenca}
+          />
+        )}
+
+        {/* Adicione aqui os outros componentes (Cardápio, Especial, etc.) */}
+        {activeTab === 'cardapio' && (
+          <div className="glass p-6 rounded-xl">Conteúdo do Cardápio</div>
+        )}
+      </div>
     </Layout>
   );
 };
