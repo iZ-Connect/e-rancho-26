@@ -1,5 +1,5 @@
 
-import { Militar, Setor, Arranchamento, UserRole } from '../types';
+import { Militar, Setor, Arranchamento, UserRole } from '../../types';
 import { subDays, parseISO, isBefore } from 'date-fns';
 
 declare var localforage: any;

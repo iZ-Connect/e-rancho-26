@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Cardapio, Aviso, UserRole, Militar } from '../types';
-import { dbService } from '../services/dbService';
+import { dbService } from '../src/services/dbService';
 // Added 'Utensils' to imports from 'lucide-react'
 import { AlertTriangle, Plus, Trash2, Megaphone, Info, Utensils } from 'lucide-react';
 
@@ -22,7 +22,7 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio, avisos, ref
 
   const handleAddAviso = () => {
     if (!newAviso.titulo || !newAviso.descricao) return;
-    
+
     dbService.saveAviso({
       id: Math.random().toString(36).substr(2, 9),
       titulo: newAviso.titulo,
@@ -31,7 +31,7 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio, avisos, ref
       ativo: true,
       dataCriacao: new Date().toISOString()
     });
-    
+
     setNewAviso({ titulo: '', descricao: '', tipo: 'amarelo' });
     setShowAddAviso(false);
     refresh();
@@ -49,7 +49,7 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio, avisos, ref
           <Megaphone className="text-primary w-8 h-8" /> Central de Comunicados
         </h2>
         {isAdmin && (
-          <button 
+          <button
             onClick={() => setShowAddAviso(!showAddAviso)}
             className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-xs font-bold shadow-lg hover:scale-105 transition-all"
           >
@@ -65,24 +65,24 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio, avisos, ref
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Título do Aviso</label>
-                <input 
-                  className="w-full bg-white/5 border border-white/10 rounded-xl h-12 px-4 text-white focus:ring-2 focus:ring-primary outline-none" 
+                <input
+                  className="w-full bg-white/5 border border-white/10 rounded-xl h-12 px-4 text-white focus:ring-2 focus:ring-primary outline-none"
                   placeholder="Ex: Manutenção no Rancho"
                   value={newAviso.titulo}
-                  onChange={e => setNewAviso({...newAviso, titulo: e.target.value})}
+                  onChange={e => setNewAviso({ ...newAviso, titulo: e.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Tipo de Gravidade</label>
                 <div className="flex gap-4">
-                  <button 
-                    onClick={() => setNewAviso({...newAviso, tipo: 'amarelo'})}
+                  <button
+                    onClick={() => setNewAviso({ ...newAviso, tipo: 'amarelo' })}
                     className={`flex-1 h-12 rounded-xl font-bold text-xs uppercase border-2 transition-all ${newAviso.tipo === 'amarelo' ? 'bg-amber-500/20 border-amber-500 text-amber-500' : 'bg-white/5 border-transparent text-slate-400'}`}
                   >
                     Atenção (Amarelo)
                   </button>
-                  <button 
-                    onClick={() => setNewAviso({...newAviso, tipo: 'vermelho'})}
+                  <button
+                    onClick={() => setNewAviso({ ...newAviso, tipo: 'vermelho' })}
                     className={`flex-1 h-12 rounded-xl font-bold text-xs uppercase border-2 transition-all ${newAviso.tipo === 'vermelho' ? 'bg-red-500/20 border-red-500 text-red-500' : 'bg-white/5 border-transparent text-slate-400'}`}
                   >
                     Urgente (Vermelho)
@@ -92,11 +92,11 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio, avisos, ref
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Descrição do Comunicado</label>
-              <textarea 
-                className="w-full bg-white/5 border border-white/10 rounded-xl h-32 p-4 text-white focus:ring-2 focus:ring-primary outline-none resize-none" 
+              <textarea
+                className="w-full bg-white/5 border border-white/10 rounded-xl h-32 p-4 text-white focus:ring-2 focus:ring-primary outline-none resize-none"
                 placeholder="Descreva aqui as informações importantes..."
                 value={newAviso.descricao}
-                onChange={e => setNewAviso({...newAviso, descricao: e.target.value})}
+                onChange={e => setNewAviso({ ...newAviso, descricao: e.target.value })}
               />
             </div>
           </div>
@@ -113,7 +113,7 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio, avisos, ref
             <AlertTriangle className="w-5 h-5 text-amber-500" />
             <h3 className="font-bold text-white uppercase text-sm tracking-widest">Mural de Avisos</h3>
           </div>
-          
+
           {activeAvisos.length === 0 ? (
             <div className="glass p-12 rounded-2xl border border-white/5 text-center">
               <Info className="w-12 h-12 text-slate-600 mx-auto mb-4" />
@@ -121,8 +121,8 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio, avisos, ref
             </div>
           ) : (
             activeAvisos.map(aviso => (
-              <div 
-                key={aviso.id} 
+              <div
+                key={aviso.id}
                 className={`glass p-6 rounded-2xl border-l-8 relative overflow-hidden transition-all hover:scale-[1.01] ${aviso.tipo === 'vermelho' ? 'border-red-500 bg-red-500/5' : 'border-amber-500 bg-amber-500/5'}`}
               >
                 <div className="flex justify-between items-start gap-4 mb-3">
@@ -130,7 +130,7 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio, avisos, ref
                     {aviso.titulo}
                   </h4>
                   {isAdmin && (
-                    <button 
+                    <button
                       onClick={() => handleRemoveAviso(aviso.id)}
                       className="p-2 bg-white/5 hover:bg-red-500/20 text-slate-500 hover:text-red-500 rounded-lg transition-all"
                     >
@@ -155,11 +155,11 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio, avisos, ref
             <Utensils className="w-5 h-5 text-primary" />
             <h3 className="font-bold text-white uppercase text-sm tracking-widest">Previsão do Cardápio</h3>
           </div>
-          
+
           <div className="glass rounded-2xl border border-white/10 overflow-hidden">
-             <div className="p-12 text-center">
-                <p className="text-slate-500 italic text-sm">O cardápio semanal é atualizado toda segunda-feira pelo encarregado do rancho.</p>
-             </div>
+            <div className="p-12 text-center">
+              <p className="text-slate-500 italic text-sm">O cardápio semanal é atualizado toda segunda-feira pelo encarregado do rancho.</p>
+            </div>
           </div>
         </div>
       </div>

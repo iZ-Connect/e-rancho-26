@@ -1,6 +1,6 @@
 import { ref, get, set, update, remove, push, child } from 'firebase/database';
 import { db } from './firebaseConfig';
-import { Militar, Arranchamento, Cardapio, Bloqueio } from '../types';
+import { Militar, Arranchamento, Cardapio, Bloqueio } from '../../types';
 
 export const dbService = {
   // LOGIN ATUALIZADO PARA FUNCIONAR COM O NOVO BANCO
