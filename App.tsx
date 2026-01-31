@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Militar, AuthState, Arranchamento, Cardapio, SpecialArranchamento, Role } from './types';
+import { Militar, AuthState, Arranchamento, Cardapio, Aviso, UserRole, Bloqueio } from './types';
 import { dbService } from './services/dbService';
-import { fetchUsersFromSheet } from './services/googleSheets'; // ✅ Import da planilha
 import Layout from './components/Layout';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
 import Presence from './components/Presence';
-import { Save, Plus, Trash2, Calendar as CalendarIcon, Users as UsersIcon } from 'lucide-react';
+import MyID from './components/MyID';
+import Scanner from './components/Scanner';
+import CardapioView from './components/CardapioView';
+import About from './components/About';
+import MilitaresList from './components/MilitaresList';
+import Relatorio from './components/Relatorio';
+import RelatorioImpressao from './components/RelatorioImpressao'; // 1. Importado o novo componente
+import { Megaphone, CheckCircle2, ChevronLeft } from 'lucide-react';
 
 const App: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>({ user: null, isAuthenticated: false });
@@ -15,138 +21,227 @@ const App: React.FC = () => {
   const [militares, setMilitares] = useState<Militar[]>([]);
   const [arranchamentos, setArranchamentos] = useState<Arranchamento[]>([]);
   const [cardapio, setCardapio] = useState<Cardapio[]>([]);
-  const [especial, setEspecial] = useState<SpecialArranchamento[]>([]);
+  const [avisos, setAvisos] = useState<Aviso[]>([]);
+  const [bloqueios, setBloqueios] = useState<Bloqueio[]>([]);
+  const [unseenNotice, setUnseenNotice] = useState<Aviso | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [syncing, setSyncing] = useState(false);
 
-  // Special Rationing Form State
-  const [specialForm, setSpecialForm] = useState({
-    data: new Date().toISOString().split('T')[0],
-    quantidade: 0,
-    motivo: ''
-  });
+  const [selectedMilitar, setSelectedMilitar] = useState<Militar | null>(null);
 
-  // Cardapio Form State
-  const [editingCardapio, setEditingCardapio] = useState<Cardapio | null>(null);
-
-  // 🔹 useEffect para carregar dados
   useEffect(() => {
-    refreshData();
+    const initApp = async () => {
+      setSyncing(true);
+      await dbService.init();
+      await refreshData();
+
+      const savedUser = dbService.getSession();
+      if (savedUser) {
+        setAuth({ user: savedUser, isAuthenticated: true });
+        setupInitialTab(savedUser);
+        await checkNotices();
+      }
+      setSyncing(false);
+    };
+
+    initApp();
+
+    const handleNetwork = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', handleNetwork);
+    window.addEventListener('offline', handleNetwork);
+    return () => {
+      window.removeEventListener('online', handleNetwork);
+      window.removeEventListener('offline', handleNetwork);
+    };
   }, []);
 
-  // 🔹 refreshData agora é async e busca do Google Sheets
-  const refreshData = async () => {
-    let users: Militar[] = [];
-    try {
-      users = await fetchUsersFromSheet(); // tenta buscar do Google Sheet
-      dbService.saveMilitares(users);       // salva no dbService como cache
-    } catch (err) {
-      console.warn('Não foi possível buscar do Google Sheets, usando cache', err);
-      users = dbService.getMilitares();     // fallback para cache/localStorage
+  const checkNotices = async () => {
+    const unseen = await dbService.getUnseenActiveNotices();
+    if (unseen.length > 0) setUnseenNotice(unseen[0]);
+  };
+
+  const closeNoticePopup = () => {
+    if (unseenNotice) {
+      dbService.markNoticeAsSeen(unseenNotice.id);
+      setUnseenNotice(null);
+      setTimeout(checkNotices, 300);
     }
-    setMilitares(users);
-    setArranchamentos(dbService.getArranchamentos());
-    setCardapio(dbService.getCardapio());
-    setEspecial(dbService.getEspecial());
   };
 
-  const handleLogin = (user: Militar) => {
+  const setupInitialTab = (user: Militar) => {
+    if (user.perfil === UserRole.ADM_LOCAL || user.perfil === UserRole.ADM_GERAL) setActiveTab('dashboard');
+    else if (user.perfil === UserRole.FISC_SU) setActiveTab('scanner');
+    else setActiveTab('identidade');
+  };
+
+  const refreshData = async () => {
+    setMilitares(await dbService.getMilitares());
+    setArranchamentos(await dbService.getArranchamentos());
+    setCardapio(await dbService.getCardapio());
+    setAvisos(await dbService.getAvisos());
+    setBloqueios(await dbService.getBloqueios());
+  };
+
+  const handleLogin = (user: Militar, persistent: boolean) => {
     setAuth({ user, isAuthenticated: true });
-    if (user.role === Role.ADM_LOCAL || user.role === Role.ADM_GERAL) setActiveTab('dashboard');
-    else if (user.role === Role.FISCAL) setActiveTab('presenca');
-    else setActiveTab('arranchamento');
+    if (persistent) dbService.saveSession(user);
+    setupInitialTab(user);
+    checkNotices();
   };
 
-  const handleLogout = () => setAuth({ user: null, isAuthenticated: false });
+  const handleLogout = () => {
+    dbService.clearSession();
+    setAuth({ user: null, isAuthenticated: false });
+  };
 
-  const toggleArranchamento = (date: string, type: 'almoço' | 'jantar') => {
+  const handleUpdatePin = async (newPin: string) => {
     if (!auth.user) return;
-    const existing = arranchamentos.find(a => a.data === date && a.militarId === auth.user!.id);
-    const newArr: Arranchamento = existing
-      ? { ...existing, [type]: !existing[type] }
-      : {
-        id: Math.random().toString(36).substr(2, 9),
-        militarId: auth.user.id,
-        data: date,
-        almoço: type === 'almoço',
-        jantar: type === 'jantar',
-        presencaAlmoço: false,
-        presencaJantar: false
-      };
-    dbService.saveArranchamento(newArr);
-    refreshData();
+    const updated = { ...auth.user, pin: newPin };
+    await dbService.updateMilitar(updated);
+    setAuth({ ...auth, user: updated });
+    await refreshData();
   };
 
-  const handleTogglePresenca = (militarId: string, data: string, tipo: 'almoço' | 'jantar') => {
-    dbService.togglePresenca(militarId, data, tipo);
-    refreshData();
-  };
-
-  const handleSaveEspecial = () => {
-    if (!auth.user || specialForm.quantidade <= 0 || !specialForm.motivo) return;
-    const newEsp: SpecialArranchamento = {
-      id: Math.random().toString(36).substr(2, 9),
-      ...specialForm,
-      registradoPor: auth.user.nomeGuerra
-    };
-    dbService.saveEspecial(newEsp);
-    setSpecialForm({ data: new Date().toISOString().split('T')[0], quantidade: 0, motivo: '' });
-    refreshData();
-    alert('Arranchamento especial registrado com sucesso!');
-  };
-
-  const handleSaveCardapio = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingCardapio) return;
-    const current = [...cardapio];
-    const index = current.findIndex(c => c.data === editingCardapio.data);
-    if (index > -1) current[index] = editingCardapio;
-    else current.push(editingCardapio);
-    dbService.saveCardapio(current);
-    setEditingCardapio(null);
-    refreshData();
+  const handleAdminUpdateMilitar = async (updated: Militar) => {
+    await dbService.updateMilitar(updated);
+    await refreshData();
+    if (auth.user?.cpf === updated.cpf) {
+      setAuth({ ...auth, user: updated });
+      dbService.saveSession(updated);
+    }
   };
 
   if (!auth.isAuthenticated || !auth.user) {
     return <Login onLogin={handleLogin} militares={militares} />;
   }
 
+  const isAdmin = auth.user.perfil === UserRole.ADM_LOCAL || auth.user.perfil === UserRole.ADM_GERAL;
+
   return (
-    <Layout
-      user={auth.user}
-      activeTab={activeTab}
-      setActiveTab={setActiveTab}
-      onLogout={handleLogout}
-    >
-      <div className="p-4 md:p-6 h-full overflow-auto">
-        {/* Lógica que decide qual tela mostrar */}
-        {activeTab === 'dashboard' && (
-          <Dashboard
+    <>
+      <Layout
+        user={auth.user}
+        activeTab={activeTab}
+        setActiveTab={(tab) => { setActiveTab(tab); setSelectedMilitar(null); }}
+        onLogout={handleLogout}
+        isOnline={isOnline}
+        syncing={syncing}
+      >
+        {activeTab === 'dashboard' && <Dashboard arranchamentos={arranchamentos} militares={militares} />}
+
+        {activeTab === 'relatorios' && isAdmin && (
+          <Relatorio militares={militares} arranchamentos={arranchamentos} />
+        )}
+
+        {/* 2. Adicionada a renderização da aba de Impressão */}
+        {activeTab === 'impressao' && isAdmin && (
+          <RelatorioImpressao militares={militares} />
+        )}
+
+        {activeTab === 'identidade' && (
+          <MyID
+            user={auth.user}
+            viewer={auth.user}
+            onUpdatePin={handleUpdatePin}
+          />
+        )}
+
+        {activeTab === 'scanner' && (
+          <Scanner
             militares={militares}
             arranchamentos={arranchamentos}
+            onConfirm={async (cpf, tipo) => {
+              await dbService.togglePresenca(cpf, new Date().toISOString().split('T')[0], tipo);
+              await refreshData();
+            }}
           />
         )}
 
         {activeTab === 'arranchamento' && (
           <CalendarView
-            militares={militares}
-            onToggle={toggleArranchamento}
+            user={auth.user}
+            arranchamentos={arranchamentos}
+            cardapio={cardapio}
+            bloqueios={bloqueios}
+            onToggle={async (d, t) => {
+              await dbService.saveArranchamento(String(auth.user!.cpf), d, t);
+              await refreshData();
+            }}
+            refresh={refreshData}
           />
         )}
 
         {activeTab === 'presenca' && (
           <Presence
             arranchamentos={arranchamentos}
-            onToggle={handleTogglePresenca}
+            militares={militares}
+            onTogglePresenca={async (cpf, d, t) => {
+              await dbService.togglePresenca(cpf, d, t);
+              await refreshData();
+            }}
           />
         )}
 
-        {/* Fallback caso a aba ainda não exista */}
-        {!['dashboard', 'arranchamento', 'presenca'].includes(activeTab) && (
-          <div className="flex items-center justify-center h-64 glass rounded-2xl">
-            <p className="text-gray-400">Módulo "{activeTab}" em desenvolvimento.</p>
-          </div>
+        {activeTab === 'cardapio' && (
+          <CardapioView
+            user={auth.user}
+            cardapio={cardapio}
+            avisos={avisos}
+            refresh={refreshData}
+          />
         )}
-      </div>
-    </Layout>
+
+        {activeTab === 'sobre' && <About />}
+
+        {activeTab === 'militares' && (
+          selectedMilitar ? (
+            <div className="space-y-6">
+              <button
+                onClick={() => setSelectedMilitar(null)}
+                className="flex items-center gap-2 text-slate-400 hover:text-white font-bold text-xs uppercase transition-all"
+              >
+                <ChevronLeft className="w-4 h-4" /> Voltar para Lista
+              </button>
+              <MyID
+                user={selectedMilitar}
+                viewer={auth.user}
+                onUpdateMilitar={handleAdminUpdateMilitar}
+                onUpdatePin={() => { }}
+              />
+            </div>
+          ) : (
+            <MilitaresList
+              militares={militares}
+              onSelectMilitar={(m) => setSelectedMilitar(m)}
+            />
+          )
+        )}
+      </Layout>
+
+      {unseenNotice && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className={`w-full max-w-lg glass rounded-3xl border-l-[12px] overflow-hidden shadow-2xl ${unseenNotice.tipo === 'vermelho' ? 'border-red-500' : 'border-amber-500'}`}>
+            <div className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className={`p-3 rounded-2xl ${unseenNotice.tipo === 'vermelho' ? 'bg-red-500/20 text-red-500' : 'bg-amber-500/20 text-amber-500'}`}>
+                  <Megaphone className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className={`text-2xl font-black uppercase tracking-tighter ${unseenNotice.tipo === 'vermelho' ? 'text-red-500' : 'text-amber-500'}`}>{unseenNotice.titulo}</h3>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Comunicado Oficial do Rancho</p>
+                </div>
+              </div>
+              <div className="p-6 bg-white/5 rounded-2xl border border-white/5 mb-8">
+                <p className="text-white text-base leading-relaxed whitespace-pre-wrap">{unseenNotice.descricao}</p>
+              </div>
+              <button onClick={closeNoticePopup} className="w-full h-14 bg-primary text-white font-black uppercase text-sm rounded-2xl shadow-lg flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-5 h-5" /> Entendido, ciente do aviso
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

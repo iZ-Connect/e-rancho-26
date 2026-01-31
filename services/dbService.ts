@@ -1,109 +1,76 @@
-
-import { Militar, Role, Arranchamento, Cardapio, SpecialArranchamento } from '../types';
-
-// In a real scenario, these functions would fetch from a Google Apps Script Web App
-// returning data from the "Rancho" sheet.
-
-const STORAGE_KEYS = {
-  MILITARES: 'erancho_militares',
-  ARRANCHAMENTOS: 'erancho_arranchamentos',
-  CARDAPIO: 'erancho_cardapio',
-  ESPECIAL: 'erancho_especial'
-};
-
-const defaultMilitares: Militar[] = [
-  {
-    id: '1',
-    cpf: '12345678901',
-    nomeCompleto: 'João da Silva',
-    nomeGuerra: 'Silva',
-    posto: 'Sargento',
-    setor: 'Logística',
-    pin: '123456',
-    role: Role.ADM_GERAL,
-    ativo: true
-  },
-  {
-    id: '2',
-    cpf: '98765432100',
-    nomeCompleto: 'Maria Oliveira',
-    nomeGuerra: 'Oliveira',
-    posto: 'Tenente',
-    setor: 'Administração',
-    pin: '000000',
-    role: Role.MILITAR,
-    ativo: true
-  },
-  {
-    id: '3',
-    cpf: '11122233344',
-    nomeCompleto: 'Carlos Santos',
-    nomeGuerra: 'Santos',
-    posto: 'Cabo',
-    setor: 'Guarda',
-    pin: '123456',
-    role: Role.FISCAL,
-    ativo: true
-  }
-];
+import { ref, get, set, update, remove, push, child } from 'firebase/database';
+import { db } from './firebaseConfig';
+import { Militar, Arranchamento, Cardapio, Bloqueio } from '../types';
 
 export const dbService = {
-  getMilitares: (): Militar[] => {
-    const data = localStorage.getItem(STORAGE_KEYS.MILITARES);
-    if (!data) {
-      localStorage.setItem(STORAGE_KEYS.MILITARES, JSON.stringify(defaultMilitares));
-      return defaultMilitares;
+  // LOGIN ATUALIZADO PARA FUNCIONAR COM O NOVO BANCO
+  async login(cpf: string, pin: string): Promise<Militar> {
+    try {
+      const dbRef = ref(db);
+      const snapshot = await get(child(dbRef, '/')); // Busca na raiz
+
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const militares = Object.values(data) as any[];
+
+        // Busca flexível: ignora maiúsculas/minúsculas nas chaves e valores
+        const militar = militares.find(m => {
+          const dbCpf = String(m.cpf || m.CPF || '').trim();
+          const dbPin = String(m.pin || m.PIN || '').trim();
+          return dbCpf === cpf.trim() && dbPin === pin.trim();
+        });
+
+        if (militar) {
+          if (militar.ativo === false) {
+            throw new Error("Usuário inativo. Procure o S1.");
+          }
+          // Normaliza o objeto para o formato que o App espera
+          return {
+            ...militar,
+            cpf: String(militar.cpf || militar.CPF),
+            pin: String(militar.pin || militar.PIN),
+            nome_guerra: militar.nome_guerra || militar["Nome de Guerra"] || "Militar",
+            perfil: militar.perfil || militar["Usuário"] || "MILITAR"
+          } as Militar;
+        }
+      }
+      throw new Error("CPF ou PIN inválidos.");
+    } catch (error: any) {
+      throw new Error(error.message || "Erro ao conectar com o banco.");
     }
-    return JSON.parse(data);
   },
 
-  saveMilitares: (militares: Militar[]) => {
-    localStorage.setItem(STORAGE_KEYS.MILITARES, JSON.stringify(militares));
+  // Busca todos os militares para relatórios e ADM
+  async getMilitares(): Promise<Militar[]> {
+    const snapshot = await get(ref(db, '/'));
+    if (snapshot.exists()) {
+      return Object.values(snapshot.val()) as Militar[];
+    }
+    return [];
   },
 
-  getArranchamentos: (): Arranchamento[] => {
-    const data = localStorage.getItem(STORAGE_KEYS.ARRANCHAMENTOS);
-    return data ? JSON.parse(data) : [];
-  },
+  // Salva ou remove arranchamento
+  async toggleArranchamento(arranchamento: Arranchamento, active: boolean) {
+    const id = `${arranchamento.militar_cpf}_${arranchamento.data}`;
+    const arranchRef = ref(db, `arranchamentos/${id}`);
 
-  saveArranchamento: (arr: Arranchamento) => {
-    const current = dbService.getArranchamentos();
-    const index = current.findIndex(a => a.militarId === arr.militarId && a.data === arr.data);
-    if (index > -1) {
-      current[index] = arr;
+    if (active) {
+      await set(arranchRef, {
+        ...arranchamento,
+        timestamp: new Date().toISOString()
+      });
     } else {
-      current.push(arr);
-    }
-    localStorage.setItem(STORAGE_KEYS.ARRANCHAMENTOS, JSON.stringify(current));
-  },
-
-  togglePresenca: (militarId: string, data: string, tipo: 'almoço' | 'jantar') => {
-    const current = dbService.getArranchamentos();
-    const index = current.findIndex(a => a.militarId === militarId && a.data === data);
-    if (index > -1) {
-      if (tipo === 'almoço') current[index].presencaAlmoço = !current[index].presencaAlmoço;
-      else current[index].presencaJantar = !current[index].presencaJantar;
-      localStorage.setItem(STORAGE_KEYS.ARRANCHAMENTOS, JSON.stringify(current));
+      await remove(arranchRef);
     }
   },
 
-  getCardapio: (): Cardapio[] => {
-    const data = localStorage.getItem(STORAGE_KEYS.CARDAPIO);
-    return data ? JSON.parse(data) : [];
-  },
-
-  saveCardapio: (cardapio: Cardapio[]) => {
-    localStorage.setItem(STORAGE_KEYS.CARDAPIO, JSON.stringify(cardapio));
-  },
-
-  getEspecial: (): SpecialArranchamento[] => {
-    const data = localStorage.getItem(STORAGE_KEYS.ESPECIAL);
-    return data ? JSON.parse(data) : [];
-  },
-
-  saveEspecial: (esp: SpecialArranchamento) => {
-    const current = dbService.getEspecial();
-    current.push(esp);
-    localStorage.setItem(STORAGE_KEYS.ESPECIAL, JSON.stringify(current));
+  // Busca arranchamentos do militar ou geral
+  async getArranchamentos(militarCpf?: string): Promise<Arranchamento[]> {
+    const snapshot = await get(ref(db, 'arranchamentos'));
+    if (snapshot.exists()) {
+      const data = Object.values(snapshot.val()) as Arranchamento[];
+      return militarCpf ? data.filter(a => a.militar_cpf === militarCpf) : data;
+    }
+    return [];
   }
 };

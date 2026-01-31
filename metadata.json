@@ -1,6 +1,6 @@
 {
-  "name": "E-Rancho - Gestão de Arranchamento Militar",
-  "description": "Um sistema completo para arranchamento militar, controle de presença e gerenciamento de cardápio, utilizando design militar moderno e integração com Google Sheets.",
+  "name": "e-Rancho - HGeSM",
+  "description": "Um sistema completo para arranchamento militar com QR Code e sincronização offline.",
   "requestFramePermissions": [
     "camera"
   ]

@@ -4,16 +4,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>E-Rancho | Gestão Militar</title>
-
-  <!-- Fonte Google -->
+  <title>e-Rancho | Gestão Militar</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap"
     rel="stylesheet">
-
-  <!-- CSS principal compilado pelo Tailwind -->
-  <link rel="stylesheet" href="/index.css">
-
-  <!-- Scrollbar customizado e vidro -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#1152d4',
+            secondary: '#1e293b',
+            background: '#0f172a',
+            surface: '#1e293b',
+            'military-green': '#4b5320',
+          },
+          fontFamily: {
+            sans: ['Public Sans', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
   <style>
     body {
       font-family: 'Public Sans', sans-serif;
@@ -40,26 +53,63 @@
       background: #334155;
       border-radius: 4px;
     }
-  </style>
 
-  <!-- Import map para módulos via ESM -->
-  <script type="importmap">
-  {
-    "imports": {
-      "recharts": "https://esm.sh/recharts@^3.7.0",
-      "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-      "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-      "react/": "https://esm.sh/react@^19.2.4/",
-      "react": "https://esm.sh/react@^19.2.4"
+    /* --- AJUSTE PARA IMPRESSÃO --- */
+    @media print {
+
+      /* 1. Esconde TUDO que não for o conteúdo principal (menus, headers, etc) */
+      .no-print,
+      aside,
+      header,
+      footer,
+      button,
+      nav {
+        display: none !important;
+      }
+
+      /* 2. Reseta o fundo para branco e texto para preto */
+      body,
+      html {
+        background: white !important;
+        color: black !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      /* 3. Remove as transparências e sombras (glassmorphism) na impressão */
+      .glass {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+      }
+
+      /* 4. Garante que os crachás ocupem a folha corretamente */
+      #root {
+        padding: 0 !important;
+        margin: 0 !important;
+      }
     }
+  </style>
+  <script type="importmap">
+{
+  "imports": {
+    "recharts": "https://esm.sh/recharts@^3.7.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "qrcode.react": "https://esm.sh/qrcode.react@^4.2.0",
+    "html5-qrcode": "https://esm.sh/html5-qrcode@^2.3.8",
+    "date-fns": "https://esm.sh/date-fns@^4.1.0",
+    "localforage": "https://esm.sh/localforage@^1.10.0"
   }
-  </script>
+}
+</script>
 </head>
 
 <body>
   <div id="root"></div>
-
-  <!-- Entrada principal do app -->
   <script type="module" src="/index.tsx"></script>
 </body>
 

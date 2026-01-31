@@ -14,6 +14,21 @@ export const getMinArranchamentoDate = (): Date => {
   return date;
 };
 
+/**
+ * Calcula a data limite de 20 dias úteis após a data mínima
+ */
+export const getMaxArranchamentoDate = (startDate: Date): Date => {
+  let date = new Date(startDate);
+  let businessDaysCount = 0;
+  while (businessDaysCount < 20) {
+    date.setDate(date.getDate() + 1);
+    if (isBusinessDay(date)) {
+      businessDaysCount++;
+    }
+  }
+  return date;
+};
+
 export const formatDateBR = (dateStr: string): string => {
   const [year, month, day] = dateStr.split('-');
   return `${day}/${month}/${year}`;
