@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Cardapio, Aviso, UserRole, Militar } from '../types';
-import { dbService } from '../src/services/dbService';
+import { dbService } from '../services/dbService';
 // Added 'Utensils' to imports from 'lucide-react'
 import { AlertTriangle, Plus, Trash2, Megaphone, Info, Utensils } from 'lucide-react';
 

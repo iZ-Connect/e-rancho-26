@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Arranchamento, Cardapio, Militar, Bloqueio, UserRole } from '../types';
 import { isBusinessDay, getDayName, getMinArranchamentoDate, getMaxArranchamentoDate } from '../utils/helpers';
 import { ChevronLeft, ChevronRight, Check, X, Utensils, AlertCircle, Lock, Unlock } from 'lucide-react';
-import { dbService } from '../src/services/dbService';
+import { dbService } from '../services/dbService';
 
 interface CalendarViewProps {
   user: Militar;

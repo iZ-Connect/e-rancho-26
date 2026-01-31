@@ -1,6 +1,6 @@
 import { ref, get, set, update, remove, push, child } from 'firebase/database';
-import { db } from './firebaseConfig';
-import { Militar, Arranchamento, Cardapio, Bloqueio } from '../../types';
+import { db } from './firebase';
+import { Militar, Arranchamento, Cardapio, Bloqueio } from '../types';
 
 export const dbService = {
   // LOGIN ATUALIZADO PARA FUNCIONAR COM O NOVO BANCO
@@ -41,12 +41,18 @@ export const dbService = {
   },
 
   // Busca todos os militares para relatórios e ADM
-  async getMilitares(): Promise<Militar[]> {
-    const snapshot = await get(ref(db, '/'));
-    if (snapshot.exists()) {
-      return Object.values(snapshot.val()) as Militar[];
-    }
-    return [];
+  async getMilitarByEmail(email: string) {
+    const snapshot = await get(child(ref(db), 'militares'));
+
+    if (!snapshot.exists()) return null;
+
+    const militares = snapshot.val();
+
+    const militar = Object.values(militares).find((m: any) =>
+      String(m.email || '').toLowerCase() === email.toLowerCase()
+    );
+
+    return militar || null;
   },
 
   // Salva ou remove arranchamento
