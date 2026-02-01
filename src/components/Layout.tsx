@@ -13,7 +13,7 @@ import {
   WifiOff,
   Info,
   Users,
-  FileText // 1. Adicionado ícone para Relatórios
+  FileText
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -29,24 +29,76 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activeTab, setActiveTab, isOnline, syncing }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Definição dos itens de menu e quem pode ver o quê
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: [UserRole.ADM_LOCAL, UserRole.ADM_GERAL] },
-    // 2. Adicionado o item de Relatórios para ambos os perfis administrativos
-    { id: 'relatorios', label: 'Relatórios', icon: FileText, roles: [UserRole.ADM_LOCAL, UserRole.ADM_GERAL] },
-    { id: 'arranchamento', label: 'Arranchamento', icon: CalendarRange, roles: [UserRole.MILITAR, UserRole.FISC_SU, UserRole.ADM_LOCAL, UserRole.ADM_GERAL] },
-    { id: 'presenca', label: 'Presença', icon: ClipboardCheck, roles: [UserRole.FISC_SU, UserRole.ADM_LOCAL, UserRole.ADM_GERAL] },
-    { id: 'scanner', label: 'Validar QR', icon: Scan, roles: [UserRole.FISC_SU, UserRole.ADM_LOCAL, UserRole.ADM_GERAL] },
-    { id: 'militares', label: 'Militares', icon: Users, roles: [UserRole.ADM_LOCAL, UserRole.ADM_GERAL] },
-    { id: 'identidade', label: 'Minha ID', icon: UserCircle, roles: [UserRole.MILITAR, UserRole.FISC_SU, UserRole.ADM_LOCAL, UserRole.ADM_GERAL] },
-    { id: 'cardapio', label: 'Cardápio', icon: Utensils, roles: [UserRole.MILITAR, UserRole.FISC_SU, UserRole.ADM_LOCAL, UserRole.ADM_GERAL] },
-    { id: 'sobre', label: 'Sobre', icon: Info, roles: [UserRole.MILITAR, UserRole.FISC_SU, UserRole.ADM_LOCAL, UserRole.ADM_GERAL] },
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: LayoutDashboard,
+      roles: ['ADM_LOCAL', 'ADM_GERAL']
+    },
+    {
+      id: 'relatorios',
+      label: 'Relatórios',
+      icon: FileText,
+      roles: ['ADM_LOCAL', 'ADM_GERAL']
+    },
+    {
+      id: 'arranchamento',
+      label: 'Arranchamento',
+      icon: CalendarRange,
+      roles: ['MILITAR', 'Militar', 'FISC_SU', 'ADM_LOCAL', 'ADM_GERAL'] // Adicionei 'Militar' (case)
+    },
+    {
+      id: 'presenca',
+      label: 'Presença',
+      icon: ClipboardCheck,
+      roles: ['FISC_SU', 'ADM_LOCAL', 'ADM_GERAL']
+    },
+    {
+      id: 'scanner',
+      label: 'Validar QR',
+      icon: Scan,
+      roles: ['FISC_SU', 'ADM_LOCAL', 'ADM_GERAL']
+    },
+    {
+      id: 'militares',
+      label: 'Militares',
+      icon: Users,
+      roles: ['ADM_LOCAL', 'ADM_GERAL']
+    },
+    {
+      id: 'identidade',
+      label: 'Minha ID',
+      icon: UserCircle,
+      roles: ['MILITAR', 'Militar', 'FISC_SU', 'ADM_LOCAL', 'ADM_GERAL']
+    },
+    {
+      id: 'cardapio',
+      label: 'Cardápio',
+      icon: Utensils,
+      roles: ['MILITAR', 'Militar', 'FISC_SU', 'ADM_LOCAL', 'ADM_GERAL']
+    },
+    {
+      id: 'sobre',
+      label: 'Sobre',
+      icon: Info,
+      roles: ['MILITAR', 'Militar', 'FISC_SU', 'ADM_LOCAL', 'ADM_GERAL']
+    },
   ];
 
-  const filteredItems = navItems.filter(item => item.roles.includes(user.perfil));
+  // FILTRAGEM SEGURA
+  // Converte o perfil do usuário para maiúsculo para comparar, garantindo que "Militar" == "MILITAR"
+  const userPerfil = String(user.perfil || '').toUpperCase();
 
-  // 3. Auxiliares para ler os campos do Firebase no rodapé do menu
-  const nomeExibicao = user["Nome de Guerra"] || user.nome_guerra || "MILITAR";
-  const postoExibicao = user["Posto"] || user.posto_grad || "---";
+  const filteredItems = navItems.filter(item => {
+    // Verifica se algum das roles permitidas bate com o perfil do usuário (tudo em maiúsculo)
+    return item.roles.some(role => String(role).toUpperCase() === userPerfil);
+  });
+
+  // Auxiliares para ler os campos do Firebase no rodapé do menu
+  const nomeExibicao = user.nome_guerra || user["Nome de Guerra"] || "MILITAR";
+  const postoExibicao = user.posto_grad || user["Posto"] || "---";
 
   return (
     <div className="min-h-screen flex bg-background text-slate-100 flex-col lg:flex-row">

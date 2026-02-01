@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Cardapio, Aviso, UserRole, Militar } from '../types';
 import { dbService } from '../services/dbService';
-// Adicionei 'Pencil' (Lápis) nas importações
 import { AlertTriangle, Plus, Trash2, Megaphone, Info, Utensils, Calendar, Pencil } from 'lucide-react';
 
 interface CardapioViewProps {
@@ -19,7 +18,8 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio = [], avisos
   const [newCardapio, setNewCardapio] = useState({ data: '', almoço: '', jantar: '' });
 
   const isAdmin = user.perfil === UserRole.ADM_LOCAL || user.perfil === UserRole.ADM_GERAL;
-  const activeAvisos = avisos.filter(a => a.ativo);
+  // Mostra todos os avisos (o banco já estará limpo, então não precisamos filtrar 'ativo')
+  const activeAvisos = avisos;
 
   // --- Lógica de Avisos ---
   const handleAddAviso = async () => {
@@ -40,8 +40,9 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio = [], avisos
   };
 
   const handleRemoveAviso = async (id: string) => {
-    if (window.confirm("Deseja arquivar este aviso?")) {
-      await dbService.deactivateAviso(id);
+    // Pergunta de confirmação de EXCLUSÃO
+    if (window.confirm("ATENÇÃO: Deseja excluir PERMANENTEMENTE este aviso do banco de dados?")) {
+      await dbService.deleteAviso(id); // Chama a nova função de deletar
       refresh();
     }
   };
@@ -65,15 +66,12 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio = [], avisos
   };
 
   const handleEditCardapio = (item: Cardapio) => {
-    // Preenche o formulário com os dados do item clicado
     setNewCardapio({
       data: item.data,
       almoço: item.almoço,
       jantar: item.jantar
     });
-    // Abre o formulário
     setShowAddCardapio(true);
-    // Rola a tela para o topo do formulário (opcional, bom para mobile)
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -84,7 +82,6 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio = [], avisos
     }
   };
 
-  // Ordenar cardápio por data (mais recente primeiro)
   const cardapioOrdenado = [...cardapio].sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
 
   return (
@@ -105,7 +102,6 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio = [], avisos
         )}
       </div>
 
-      {/* Formulário Novo Aviso */}
       {showAddAviso && (
         <div className="glass p-6 rounded-2xl border-2 border-primary animate-in zoom-in-95">
           <h3 className="font-bold text-white mb-6 uppercase text-sm">Novo Comunicado</h3>
@@ -157,7 +153,7 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio = [], avisos
                 <div className="flex justify-between items-start gap-4 mb-2">
                   <h4 className={`text-lg font-black uppercase ${aviso.tipo === 'vermelho' ? 'text-red-500' : 'text-amber-500'}`}>{aviso.titulo}</h4>
                   {isAdmin && (
-                    <button onClick={() => handleRemoveAviso(aviso.id)} className="text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => handleRemoveAviso(aviso.id)} className="text-slate-500 hover:text-red-500" title="Excluir Definitivamente"><Trash2 className="w-4 h-4" /></button>
                   )}
                 </div>
                 <p className="text-white text-sm">{aviso.descricao}</p>
@@ -186,7 +182,6 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio = [], avisos
             )}
           </div>
 
-          {/* Formulário de Adicionar/Editar Cardápio */}
           {showAddCardapio && (
             <div className="glass p-4 rounded-2xl border border-primary mb-4 animate-in fade-in">
               <h4 className="text-white font-bold text-xs uppercase mb-3">
@@ -222,7 +217,6 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio = [], avisos
             </div>
           )}
 
-          {/* Lista de Cardápios */}
           {cardapioOrdenado.length === 0 ? (
             <div className="glass rounded-2xl border border-white/10 p-12 text-center">
               <p className="text-slate-500 italic text-sm">Nenhum cardápio cadastrado.</p>
@@ -239,7 +233,6 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio = [], avisos
                       </span>
                     </div>
 
-                    {/* BOTÕES DE AÇÃO (SÓ PARA ADMIN) */}
                     {isAdmin && (
                       <div className="flex gap-2">
                         <button

@@ -1,4 +1,4 @@
-import { ref, get, set, update, remove, child } from 'firebase/database';
+import { ref, get, set, update, remove } from 'firebase/database';
 import { db } from './firebase';
 import { Militar, Arranchamento, Cardapio, Aviso, Bloqueio } from '../types';
 
@@ -73,11 +73,9 @@ export const dbService = {
 
   // --- CARDÁPIO ---
   async saveCardapio(cardapio: Cardapio) {
-    // Salva com a data como ID (funciona como criar ou editar)
     await set(ref(db, `cardapio/${cardapio.data}`), cardapio);
   },
 
-  // ADICIONE ESTA FUNÇÃO NOVA:
   async deleteCardapio(data: string) {
     await remove(ref(db, `cardapio/${data}`));
   },
@@ -87,19 +85,14 @@ export const dbService = {
     return snapshot.exists() ? Object.values(snapshot.val()) as Cardapio[] : [];
   },
 
-  async getCardapio(): Promise<Cardapio[]> {
-    const snapshot = await get(ref(db, 'cardapio'));
-    // Retorna a lista de cardápios
-    return snapshot.exists() ? Object.values(snapshot.val()) as Cardapio[] : [];
-  },
-
-  // --- AVISOS (ESSA PARTE TAMBÉM FALTAVA) ---
+  // --- AVISOS (ATUALIZADO PARA EXCLUIR DE VERDADE) ---
   async saveAviso(aviso: Aviso) {
     await set(ref(db, `avisos/${aviso.id}`), aviso);
   },
 
-  async deactivateAviso(id: string) {
-    await update(ref(db, `avisos/${id}`), { ativo: false });
+  async deleteAviso(id: string) {
+    // Agora usa REMOVE para apagar do banco, não apenas desativar
+    await remove(ref(db, `avisos/${id}`));
   },
 
   async getAvisos(): Promise<Aviso[]> {
@@ -110,7 +103,8 @@ export const dbService = {
   async getUnseenActiveNotices(): Promise<Aviso[]> {
     const avisos = await this.getAvisos();
     const seenIds = JSON.parse(localStorage.getItem(SEEN_NOTICES_KEY) || '[]');
-    return avisos.filter(a => a.ativo && !seenIds.includes(a.id));
+    // Filtra avisos que existem e não foram vistos (removido filtro de 'ativo' pois agora apagamos os inativos)
+    return avisos.filter(a => !seenIds.includes(a.id));
   },
 
   markNoticeAsSeen(id: string) {
@@ -121,11 +115,46 @@ export const dbService = {
     }
   },
 
-  // --- ARRANCHAMENTOS E OUTROS ---
-  async saveArranchamento(cpf: string, data: string, refeicao: 'almoco' | 'jantar') {
-    // Lógica simplificada de toggle para o exemplo
-    console.log("Salvar arranchamento:", cpf, data, refeicao);
-    // Implemente a lógica real de salvar aqui se necessário
+  // --- ARRANCHAMENTOS ---
+  async saveArranchamento(cpf: string, data: string, refeicao: string) {
+    const id = `${cpf}_${data}`;
+    const arranchRef = ref(db, `arranchamentos/${id}`);
+
+    const snapshot = await get(arranchRef);
+    let currentData = snapshot.val();
+
+    if (!currentData) {
+      currentData = {
+        id: id,
+        militar_cpf: cpf,
+        data: data,
+        almoco: false,
+        jantar: false,
+        presenca_almoco: false,
+        presenca_jantar: false
+      };
+    }
+
+    const tipo = refeicao.toLowerCase();
+
+    if (tipo.includes('almoc') || tipo.includes('almoç')) {
+      currentData.almoco = !currentData.almoco;
+    }
+    else if (tipo.includes('jantar')) {
+      currentData.jantar = !currentData.jantar;
+    }
+
+    const estaVazio =
+      currentData.almoco === false &&
+      currentData.jantar === false &&
+      !currentData.presenca_almoco &&
+      !currentData.presenca_jantar;
+
+    if (estaVazio) {
+      await remove(arranchRef);
+    } else {
+      await set(arranchRef, currentData);
+    }
   },
 
   async toggleArranchamento(arranchamento: Arranchamento, active: boolean) {
@@ -147,12 +176,31 @@ export const dbService = {
     return [];
   },
 
+  // --- BLOQUEIOS ---
+  async saveBloqueio(bloqueio: Bloqueio) {
+    await set(ref(db, `bloqueios/${bloqueio.data}`), bloqueio);
+  },
+
+  async removeBloqueio(data: string) {
+    await remove(ref(db, `bloqueios/${data}`));
+  },
+
   async getBloqueios(): Promise<Bloqueio[]> {
     const snapshot = await get(ref(db, 'bloqueios'));
     return snapshot.exists() ? Object.values(snapshot.val()) as Bloqueio[] : [];
   },
 
+  // --- PRESENÇA ---
   async togglePresenca(cpf: string, data: string, tipo: 'almoco' | 'jantar') {
-    console.log(`Presença: ${cpf}, ${data}, ${tipo}`);
+    const id = `${cpf}_${data}`;
+    const arranchRef = ref(db, `arranchamentos/${id}`);
+
+    const snapshot = await get(arranchRef);
+    if (snapshot.exists()) {
+      const updates: any = {};
+      if (tipo === 'almoco') updates.presenca_almoco = true;
+      if (tipo === 'jantar') updates.presenca_jantar = true;
+      await update(arranchRef, updates);
+    }
   }
 };

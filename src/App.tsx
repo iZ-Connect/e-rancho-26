@@ -12,7 +12,7 @@ import CardapioView from './components/CardapioView';
 import About from './components/About';
 import MilitaresList from './components/MilitaresList';
 import Relatorio from './components/Relatorio';
-import RelatorioImpressao from './components/RelatorioImpressao'; // 1. Importado o novo componente
+import RelatorioImpressao from './components/RelatorioImpressao';
 import { Megaphone, CheckCircle2, ChevronLeft } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -71,7 +71,7 @@ const App: React.FC = () => {
   const setupInitialTab = (user: Militar) => {
     if (user.perfil === UserRole.ADM_LOCAL || user.perfil === UserRole.ADM_GERAL) setActiveTab('dashboard');
     else if (user.perfil === UserRole.FISC_SU) setActiveTab('scanner');
-    else setActiveTab('identidade');
+    else setActiveTab('arranchamento'); // Alterado para cair direto no calendário
   };
 
   const refreshData = async () => {
@@ -102,12 +102,20 @@ const App: React.FC = () => {
     await refreshData();
   };
 
+  // Função poderosa usada pelos ADMINS para editar qualquer militar
   const handleAdminUpdateMilitar = async (updated: Militar) => {
     await dbService.updateMilitar(updated);
     await refreshData();
+
+    // Se o admin editou o próprio perfil, atualiza a sessão local também
     if (auth.user?.cpf === updated.cpf) {
       setAuth({ ...auth, user: updated });
       dbService.saveSession(updated);
+    }
+
+    // Atualiza o militar selecionado na tela para refletir as mudanças imediatamente
+    if (selectedMilitar?.cpf === updated.cpf) {
+      setSelectedMilitar(updated);
     }
   };
 
@@ -133,7 +141,6 @@ const App: React.FC = () => {
           <Relatorio militares={militares} arranchamentos={arranchamentos} />
         )}
 
-        {/* 2. Adicionada a renderização da aba de Impressão */}
         {activeTab === 'impressao' && isAdmin && (
           <RelatorioImpressao militares={militares} />
         )}
@@ -202,16 +209,25 @@ const App: React.FC = () => {
               >
                 <ChevronLeft className="w-4 h-4" /> Voltar para Lista
               </button>
+
+              {/* MODO EDIÇÃO: Admin vendo outro militar */}
               <MyID
                 user={selectedMilitar}
                 viewer={auth.user}
                 onUpdateMilitar={handleAdminUpdateMilitar}
-                onUpdatePin={() => { }}
+                onUpdatePin={async () => {
+                  /* Essa função fica vazia aqui propositalmente.
+                     A atualização de PIN de terceiros é feita pelo botão "Resetar Senha" 
+                     dentro do MyID, que usa o onUpdateMilitar.
+                  */
+                }}
               />
             </div>
           ) : (
+            // CORREÇÃO CRÍTICA AQUI: Adicionado currentUser={auth.user}
             <MilitaresList
               militares={militares}
+              currentUser={auth.user}
               onSelectMilitar={(m) => setSelectedMilitar(m)}
             />
           )
