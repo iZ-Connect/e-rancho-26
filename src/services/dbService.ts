@@ -71,10 +71,20 @@ export const dbService = {
     await update(ref(db, `militares/${militar.id}`), militar);
   },
 
-  // --- CARDÁPIO (ESSA PARTE FALTAVA NO SEU ARQUIVO) ---
+  // --- CARDÁPIO ---
   async saveCardapio(cardapio: Cardapio) {
-    // Salva com a data como ID
+    // Salva com a data como ID (funciona como criar ou editar)
     await set(ref(db, `cardapio/${cardapio.data}`), cardapio);
+  },
+
+  // ADICIONE ESTA FUNÇÃO NOVA:
+  async deleteCardapio(data: string) {
+    await remove(ref(db, `cardapio/${data}`));
+  },
+
+  async getCardapio(): Promise<Cardapio[]> {
+    const snapshot = await get(ref(db, 'cardapio'));
+    return snapshot.exists() ? Object.values(snapshot.val()) as Cardapio[] : [];
   },
 
   async getCardapio(): Promise<Cardapio[]> {
