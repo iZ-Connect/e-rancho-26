@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserRole, Militar } from '../types';
+import { Militar } from '../types';
 import {
   LayoutDashboard,
   CalendarRange,
@@ -13,7 +13,8 @@ import {
   WifiOff,
   Info,
   Users,
-  FileText
+  FileText,
+  Printer // 1. Importei o ícone da impressora
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -43,11 +44,18 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activeTab, se
       icon: FileText,
       roles: ['ADM_LOCAL', 'ADM_GERAL']
     },
+    // 2. NOVO MENU: IMPRESSÃO EM LOTE (Só Admins)
+    {
+      id: 'impressao',
+      label: 'Imprimir IDs',
+      icon: Printer,
+      roles: ['ADM_LOCAL', 'ADM_GERAL']
+    },
     {
       id: 'arranchamento',
       label: 'Arranchamento',
       icon: CalendarRange,
-      roles: ['MILITAR', 'Militar', 'FISC_SU', 'ADM_LOCAL', 'ADM_GERAL'] // Adicionei 'Militar' (case)
+      roles: ['MILITAR', 'Militar', 'FISC_SU', 'ADM_LOCAL', 'ADM_GERAL']
     },
     {
       id: 'presenca',
@@ -87,16 +95,12 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activeTab, se
     },
   ];
 
-  // FILTRAGEM SEGURA
-  // Converte o perfil do usuário para maiúsculo para comparar, garantindo que "Militar" == "MILITAR"
+  // FILTRAGEM SEGURA DE PERFIL
   const userPerfil = String(user.perfil || '').toUpperCase();
-
   const filteredItems = navItems.filter(item => {
-    // Verifica se algum das roles permitidas bate com o perfil do usuário (tudo em maiúsculo)
     return item.roles.some(role => String(role).toUpperCase() === userPerfil);
   });
 
-  // Auxiliares para ler os campos do Firebase no rodapé do menu
   const nomeExibicao = user.nome_guerra || user["Nome de Guerra"] || "MILITAR";
   const postoExibicao = user.posto_grad || user["Posto"] || "---";
 
@@ -106,7 +110,8 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activeTab, se
         <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 w-64 glass border-r border-white/10 z-50 transform transition-transform duration-300 lg:relative lg:transform-none ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {/* 3. Adicionei 'no-print' aqui para a barra lateral sumir na impressão */}
+      <aside className={`fixed inset-y-0 left-0 w-64 glass border-r border-white/10 z-50 transform transition-transform duration-300 lg:relative lg:transform-none ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} no-print`}>
         <div className="p-6 border-b border-white/5 flex items-center gap-3">
           <div className="p-2 bg-primary rounded-lg">
             <Utensils className="w-6 h-6 text-white" />
