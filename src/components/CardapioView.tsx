@@ -13,6 +13,8 @@ interface CardapioViewProps {
 const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio = [], avisos = [], refresh }) => {
   const [showAddAviso, setShowAddAviso] = useState(false);
   const [showAddCardapio, setShowAddCardapio] = useState(false);
+  console.log("Cardápio recebido:", cardapio);
+  console.log("Avisos recebidos:", avisos);
 
   // Estado para novo aviso
   const [newAviso, setNewAviso] = useState({ titulo: '', descricao: '', tipo: 'amarelo' as 'amarelo' | 'vermelho' });
@@ -78,6 +80,7 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio = [], avisos
   const cardapioOrdenado = [...cardapio].sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
 
   return (
+
     <div className="space-y-10 animate-in fade-in duration-500">
 
       {/* --- SEÇÃO DE COMUNICADOS --- */}
