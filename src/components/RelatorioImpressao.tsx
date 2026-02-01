@@ -53,8 +53,8 @@ const RelatorioImpressao: React.FC<RelatorioImpressaoProps> = ({ militares }) =>
                         <div
                             key={String(mil.cpf)}
                             className={`p-6 rounded-[2rem] border border-white/10 shadow-xl relative overflow-hidden flex flex-col items-center text-center print:break-inside-avoid print:page-break-inside-avoid mb-4 print:mb-6 ${isInactive
-                                    ? 'bg-gradient-to-br from-red-800 to-red-950 text-white print:bg-red-900' // Visual Inativo
-                                    : 'bg-gradient-to-br from-[#0f172a] to-slate-900 text-white print:bg-[#1e293b]' // Visual Ativo (Escuro/Glass simulado para impressão)
+                                ? 'bg-gradient-to-br from-red-800 to-red-950 text-white print:bg-red-900' // Visual Inativo
+                                : 'bg-gradient-to-br from-[#0f172a] to-slate-900 text-white print:bg-[#1e293b]' // Visual Ativo (Escuro/Glass simulado para impressão)
                                 }`}
                             style={{
                                 minHeight: '400px',
@@ -67,7 +67,7 @@ const RelatorioImpressao: React.FC<RelatorioImpressaoProps> = ({ militares }) =>
 
                             {/* Cabeçalho do Crachá */}
                             <div className="flex flex-col items-center mb-4 mt-2">
-                                <span className={`text-[9px] font-black uppercase tracking-[0.4em] mb-1 ${isInactive ? 'text-red-300' : 'text-emerald-400'}`}>
+                                <span className={`text-11px] font-black  tracking-[0.4em] mb-1 ${isInactive ? 'text-red-300' : 'text-emerald-400'}`}>
                                     e-Rancho
                                 </span>
                                 <div className="flex items-center gap-2">
@@ -118,7 +118,7 @@ const RelatorioImpressao: React.FC<RelatorioImpressaoProps> = ({ militares }) =>
                                 {/* NOME DA OM */}
                                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10">
                                     <Globe className="w-3 h-3 text-slate-400" />
-                                    <span className="text-xs font-black text-white tracking-widest uppercase">HGeSM</span>
+                                    <span className="text-xs font-black text-white tracking-widest ">HGeSM</span>
                                 </div>
                             </div>
 

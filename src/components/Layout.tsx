@@ -110,7 +110,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activeTab, se
           <div className="p-2 bg-primary rounded-lg">
             <Utensils className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-xl font-black tracking-tighter uppercase text-white">E-Rancho</h1>
+          <h1 className="text-xl font-black tracking-tighter  text-white">e-Rancho HGeSM</h1>
         </div>
 
         <nav className="p-4 space-y-1">

@@ -74,14 +74,14 @@ const MyID: React.FC<MyIDProps> = ({ user, viewer, onUpdateMilitar, onUpdatePin 
 
       {/* --- CARTÃO DE IDENTIDADE --- */}
       <div className={`p-8 rounded-[2rem] border border-white/10 shadow-2xl relative overflow-hidden flex flex-col items-center text-center transition-all duration-500 ${isInactive
-          ? 'bg-gradient-to-br from-red-800 to-red-950 shadow-red-900/50'
-          : 'glass'
+        ? 'bg-gradient-to-br from-red-800 to-red-950 shadow-red-900/50'
+        : 'glass'
         }`}>
 
         <div className={`absolute top-0 left-0 w-full h-2 ${isInactive ? 'bg-red-500' : 'bg-primary'}`} />
 
         <div className="flex flex-col items-center mb-6">
-          <span className={`text-[10px] font-black uppercase tracking-[0.5em] mb-1 ${isInactive ? 'text-red-300' : 'text-primary'}`}>
+          <span className={`text-[15px] font-black tracking-[0.5em] mb-1 text-white ${isInactive ? 'text-red-300' : 'text-primary'}`}>
             e-Rancho
           </span>
           <div className="flex items-center gap-2">
