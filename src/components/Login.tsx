@@ -133,7 +133,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </form>
 
           <div className="p-4 bg-white/5 text-xs text-slate-500 flex justify-center gap-2">
-            <HelpCircle className="w-4 h-4" /> Contate o Rancho
+            <HelpCircle className="w-4 h-4" /> Desenvolvido por Ezequiel FAGUNDES
           </div>
         </div>
       </div>
