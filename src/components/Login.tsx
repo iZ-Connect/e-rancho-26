@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Utensils, HelpCircle } from 'lucide-react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../services/firebase';
+// REMOVIDO: import { signInWithEmailAndPassword } from 'firebase/auth'; 
+// REMOVIDO: import { auth } from '../services/firebase';
 import { Militar } from '../types';
-import { dbService } from '../services/dbService';
+// ADICIONADO: Importações necessárias para consultar o Realtime Database diretamente
+import { getDatabase, ref, query, orderByChild, equalTo, get } from "firebase/database";
+import { app } from "../services/firebase";
 
 interface LoginProps {
   onLogin: (militar: Militar, persistent: boolean) => void;
@@ -11,7 +13,7 @@ interface LoginProps {
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState(''); // Aqui "password" na verdade será o PIN
   const [persistent, setPersistent] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,27 +24,50 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, password);
-      const user = cred.user;
+      // 1. Conecta ao banco de dados
+      const db = getDatabase(app);
+      const militaresRef = ref(db, 'militares');
 
-      const militar = await dbService.getMilitarByEmail(user.email || '');
+      // 2. Prepara a consulta: buscar na lista 'militares' onde 'email' é igual ao digitado
+      const consultaEmail = query(militaresRef, orderByChild('email'), equalTo(email));
 
-      if (!militar) {
-        setError('Usuário autenticado, mas não cadastrado no sistema.');
-        return;
+      // 3. Executa a busca
+      const snapshot = await get(consultaEmail);
+
+      if (snapshot.exists()) {
+        // O Firebase retorna um objeto com chaves (ex: {"0": {...}}), precisamos dos dados internos
+        const dadosRetornados = snapshot.val();
+        const chavePrimeiroResultado = Object.keys(dadosRetornados)[0];
+        const militarEncontrado = dadosRetornados[chavePrimeiroResultado];
+
+        // 4. Validação Manual da Senha (PIN)
+        // Comparar o PIN digitado (password) com o PIN do banco
+        // Convertemos ambos para String para evitar erros de tipo (número vs texto)
+        if (String(militarEncontrado.pin) === String(password)) {
+
+          // Sucesso! Chama a função de login do pai passando os dados do militar
+          onLogin(
+            {
+              ...militarEncontrado,
+              // Como não temos uid do Auth, podemos usar o ID do banco ou gerar um temporário
+              uid: String(militarEncontrado.id),
+              email: militarEncontrado.email
+            },
+            persistent
+          );
+
+        } else {
+          setError('PIN inválido (Senha incorreta).');
+        }
+      } else {
+        setError('Email não encontrado no sistema.');
       }
 
-      onLogin(
-        {
-          ...militar,
-          uid: user.uid,
-          email: user.email
-        },
-        persistent
-      );
-
     } catch (err) {
-      setError('Email ou senha inválidos.');
+      console.error("Erro no login:", err);
+      setError('Erro ao conectar com o banco de dados. Verifique sua conexão.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -73,17 +98,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 onChange={e => setEmail(e.target.value)}
                 className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-white"
                 required
+                placeholder="ex: teste@erancho.mil.br"
               />
             </div>
 
             <div>
-              <label className="text-xs text-slate-400 uppercase">Senha</label>
+              {/* Alterei o label para PIN para ficar mais claro para o usuário */}
+              <label className="text-xs text-slate-400 uppercase">PIN (Senha)</label>
               <input
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-white"
                 required
+                placeholder="Digite seu PIN (ex: 1234)"
               />
             </div>
 
@@ -100,7 +128,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               disabled={loading}
               className="w-full h-12 bg-primary text-white rounded-xl font-bold uppercase"
             >
-              {loading ? 'Entrando...' : 'Entrar'}
+              {loading ? 'Verificando...' : 'Entrar'}
             </button>
           </form>
 
