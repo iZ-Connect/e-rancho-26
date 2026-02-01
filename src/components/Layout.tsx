@@ -58,12 +58,6 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activeTab, se
       roles: ['MILITAR', 'Militar', 'FISC_SU', 'ADM_LOCAL', 'ADM_GERAL']
     },
     {
-      id: 'presenca',
-      label: 'Presença',
-      icon: ClipboardCheck,
-      roles: ['FISC_SU', 'ADM_LOCAL', 'ADM_GERAL']
-    },
-    {
       id: 'scanner',
       label: 'Validar QR',
       icon: Scan,
