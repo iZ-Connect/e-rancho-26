@@ -1,276 +1,192 @@
-import React, { useState } from 'react';
-import { Cardapio, Aviso, UserRole, Militar } from '../types';
-import { dbService } from '../services/dbService';
-import { AlertTriangle, Plus, Trash2, Megaphone, Info, Utensils, Calendar, Pencil } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Arranchamento, Cardapio, Militar, Bloqueio, UserRole } from '../types';
+import {
+  Calendar as CalendarIcon,
+  Utensils,
+  Check,
+  X,
+  AlertCircle,
+  Lock,
+  Clock
+} from 'lucide-react';
 
-interface CardapioViewProps {
+interface CalendarViewProps {
   user: Militar;
+  arranchamentos: Arranchamento[];
   cardapio: Cardapio[];
-  avisos: Aviso[];
-  refresh: () => void;
+  bloqueios: Bloqueio[];
+  onToggle: (data: string, refeicao: 'almoco' | 'jantar') => void;
+  refresh?: () => void;
 }
 
-const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio = [], avisos = [], refresh }) => {
-  const [showAddAviso, setShowAddAviso] = useState(false);
-  const [showAddCardapio, setShowAddCardapio] = useState(false);
+const CalendarView: React.FC<CalendarViewProps> = ({
+  user,
+  arranchamentos,
+  cardapio,
+  bloqueios,
+  onToggle
+}) => {
 
-  const [newAviso, setNewAviso] = useState({ titulo: '', descricao: '', tipo: 'amarelo' as 'amarelo' | 'vermelho' });
-  const [newCardapio, setNewCardapio] = useState({ data: '', almoço: '', jantar: '' });
+  // Gera os próximos 30 dias
+  const days = useMemo(() => {
+    const lista = [];
+    const hoje = new Date();
+    // Ajuste de fuso horário simples para garantir a data correta
+    const offset = hoje.getTimezoneOffset() * 60000;
+    const localHoje = new Date(hoje.getTime() - offset);
 
-  const isAdmin = user.perfil === UserRole.ADM_LOCAL || user.perfil === UserRole.ADM_GERAL;
-  // Mostra todos os avisos (o banco já estará limpo, então não precisamos filtrar 'ativo')
-  const activeAvisos = avisos;
-
-  // --- Lógica de Avisos ---
-  const handleAddAviso = async () => {
-    if (!newAviso.titulo || !newAviso.descricao) return;
-
-    await dbService.saveAviso({
-      id: Math.random().toString(36).substr(2, 9),
-      titulo: newAviso.titulo,
-      descricao: newAviso.descricao,
-      tipo: newAviso.tipo,
-      ativo: true,
-      dataCriacao: new Date().toISOString()
-    });
-
-    setNewAviso({ titulo: '', descricao: '', tipo: 'amarelo' });
-    setShowAddAviso(false);
-    refresh();
-  };
-
-  const handleRemoveAviso = async (id: string) => {
-    // Pergunta de confirmação de EXCLUSÃO
-    if (window.confirm("ATENÇÃO: Deseja excluir PERMANENTEMENTE este aviso do banco de dados?")) {
-      await dbService.deleteAviso(id); // Chama a nova função de deletar
-      refresh();
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(localHoje);
+      d.setDate(localHoje.getDate() + i);
+      lista.push(d.toISOString().split('T')[0]);
     }
-  };
+    return lista;
+  }, []);
 
-  // --- Lógica de Cardápio ---
-  const handleAddCardapio = async () => {
-    if (!newCardapio.data || !newCardapio.almoço || !newCardapio.jantar) {
-      alert("Preencha todos os campos do cardápio!");
-      return;
-    }
+  const getTodayLocal = () => {
+    const today = new Date();
+    const offset = today.getTimezoneOffset() * 60000;
+    return new Date(today.getTime() - offset).toISOString().split('T')[0];
+  }
 
-    await dbService.saveCardapio({
-      data: newCardapio.data,
-      almoço: newCardapio.almoço,
-      jantar: newCardapio.jantar
-    });
+  const todayVal = getTodayLocal();
 
-    setNewCardapio({ data: '', almoço: '', jantar: '' });
-    setShowAddCardapio(false);
-    refresh();
-  };
-
-  const handleEditCardapio = (item: Cardapio) => {
-    setNewCardapio({
-      data: item.data,
-      almoço: item.almoço,
-      jantar: item.jantar
-    });
-    setShowAddCardapio(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleDeleteCardapio = async (data: string) => {
-    if (window.confirm(`Tem certeza que deseja EXCLUIR o cardápio do dia ${data}?`)) {
-      await dbService.deleteCardapio(data);
-      refresh();
-    }
-  };
-
-  const cardapioOrdenado = [...cardapio].sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+  // Verifica se o usuário é ADM GERAL
+  const isAdmGeral = user.perfil === UserRole.ADM_GERAL;
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
 
-      {/* --- SEÇÃO DE COMUNICADOS --- */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-          <Megaphone className="text-primary w-8 h-8" /> Central de Comunicados
-        </h2>
-        {isAdmin && (
-          <button
-            onClick={() => setShowAddAviso(!showAddAviso)}
-            className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-xs font-bold shadow-lg hover:scale-105 transition-all"
-          >
-            <Plus className="w-4 h-4" /> Novo Aviso
-          </button>
-        )}
+      {/* Cabeçalho */}
+      <div className="flex items-center justify-between glass p-6 rounded-2xl border border-white/10 sticky top-0 z-10">
+        <div>
+          <h2 className="text-xl font-black text-white uppercase tracking-tight flex items-center gap-2">
+            <CalendarIcon className="w-6 h-6 text-primary" /> Arranchamento
+          </h2>
+          <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
+            Planejamento de Refeições
+          </p>
+        </div>
+        <div className="text-right hidden sm:block">
+          <p className="text-[10px] text-slate-500 font-bold uppercase">Hoje</p>
+          <p className="text-lg font-black text-white">{new Date().toLocaleDateString('pt-BR')}</p>
+        </div>
       </div>
 
-      {showAddAviso && (
-        <div className="glass p-6 rounded-2xl border-2 border-primary animate-in zoom-in-95">
-          <h3 className="font-bold text-white mb-6 uppercase text-sm">Novo Comunicado</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <input
-                className="w-full bg-white/5 border border-white/10 rounded-xl h-12 px-4 text-white"
-                placeholder="Título do Aviso"
-                value={newAviso.titulo}
-                onChange={e => setNewAviso({ ...newAviso, titulo: e.target.value })}
-              />
-              <div className="flex gap-4">
-                <button onClick={() => setNewAviso({ ...newAviso, tipo: 'amarelo' })} className={`flex-1 h-12 rounded-xl font-bold text-xs uppercase border-2 ${newAviso.tipo === 'amarelo' ? 'bg-amber-500/20 border-amber-500 text-amber-500' : 'bg-white/5 border-transparent text-slate-400'}`}>Atenção (Amarelo)</button>
-                <button onClick={() => setNewAviso({ ...newAviso, tipo: 'vermelho' })} className={`flex-1 h-12 rounded-xl font-bold text-xs uppercase border-2 ${newAviso.tipo === 'vermelho' ? 'bg-red-500/20 border-red-500 text-red-500' : 'bg-white/5 border-transparent text-slate-400'}`}>Urgente (Vermelho)</button>
-              </div>
-            </div>
-            <textarea
-              className="w-full bg-white/5 border border-white/10 rounded-xl h-32 p-4 text-white resize-none"
-              placeholder="Descrição..."
-              value={newAviso.descricao}
-              onChange={e => setNewAviso({ ...newAviso, descricao: e.target.value })}
-            />
-          </div>
-          <div className="flex gap-4 mt-4">
-            <button onClick={handleAddAviso} className="flex-1 bg-primary h-12 rounded-xl text-white font-bold uppercase text-xs">Publicar</button>
-            <button onClick={() => setShowAddAviso(false)} className="flex-1 bg-white/5 h-12 rounded-xl text-slate-400 font-bold uppercase text-xs">Cancelar</button>
-          </div>
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {days.map(dayStr => {
+          const dateObj = new Date(dayStr);
+          // Ajuste visual da data
+          const diaSemana = dateObj.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+          const diaMes = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
-      {/* --- SEÇÃO DE CONTEÚDO --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          const agendamento = arranchamentos.find(a => a.data === dayStr);
+          const almocoMarcado = agendamento?.almoco || false;
+          const jantarMarcado = agendamento?.jantar || false;
 
-        {/* COLUNA 1: AVISOS */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-5 h-5 text-amber-500" />
-            <h3 className="font-bold text-white uppercase text-sm tracking-widest">Mural de Avisos</h3>
-          </div>
+          const itemCardapio = cardapio.find(c => c.data === dayStr);
+          const bloqueio = bloqueios.find(b => b.data === dayStr);
 
-          {activeAvisos.length === 0 ? (
-            <div className="glass p-12 rounded-2xl border border-white/5 text-center">
-              <Info className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-              <p className="text-slate-500 font-medium">Nenhum aviso ativo.</p>
-            </div>
-          ) : (
-            activeAvisos.map(aviso => (
-              <div key={aviso.id} className={`glass p-6 rounded-2xl border-l-8 relative mb-4 ${aviso.tipo === 'vermelho' ? 'border-red-500 bg-red-500/5' : 'border-amber-500 bg-amber-500/5'}`}>
-                <div className="flex justify-between items-start gap-4 mb-2">
-                  <h4 className={`text-lg font-black uppercase ${aviso.tipo === 'vermelho' ? 'text-red-500' : 'text-amber-500'}`}>{aviso.titulo}</h4>
-                  {isAdmin && (
-                    <button onClick={() => handleRemoveAviso(aviso.id)} className="text-slate-500 hover:text-red-500" title="Excluir Definitivamente"><Trash2 className="w-4 h-4" /></button>
-                  )}
+          // LÓGICA DE BLOQUEIO (Here is the magic)
+          const isPast = dayStr < todayVal;
+          const isToday = dayStr === todayVal;
+
+          // Se for passado: Bloqueado para todos.
+          // Se for hoje: Bloqueado para normais, LIBERADO para ADM_GERAL.
+          // Se tiver bloqueio administrativo (feriado): Bloqueado visualmente (mas ADM_GERAL poderia forçar se quisesse, aqui mantivemos o respeito ao bloqueio de feriado para evitar erros de cozinha, mas liberamos o "Dia de Hoje").
+
+          let isLocked = false;
+
+          if (isPast) {
+            isLocked = true; // Passado é imutável
+          } else if (isToday) {
+            // Se for hoje, só o ADM GERAL pode mexer
+            isLocked = !isAdmGeral;
+          }
+          // Bloqueios administrativos (Feriados) travam todo mundo (pode remover essa linha se quiser que o ADM fure feriados também)
+          if (bloqueio) isLocked = true;
+
+          return (
+            <div
+              key={dayStr}
+              className={`relative overflow-hidden rounded-2xl border transition-all duration-300 ${isToday ? 'bg-white/5 border-primary/50 ring-1 ring-primary/30' :
+                  isPast ? 'bg-black/20 border-white/5 opacity-60' :
+                    'glass border-white/10 hover:border-white/20'
+                }`}
+            >
+              {isToday && (
+                <div className="absolute top-0 right-0 bg-primary text-white text-[9px] font-black px-2 py-1 rounded-bl-xl uppercase tracking-widest">
+                  Hoje
                 </div>
-                <p className="text-white text-sm">{aviso.descricao}</p>
-                <div className="mt-2 text-[10px] text-slate-500 uppercase font-bold text-right">
-                  {new Date(aviso.dataCriacao).toLocaleDateString('pt-BR')}
+              )}
+
+              {/* Título do Dia */}
+              <div className="p-4 border-b border-white/5 flex justify-between items-center bg-black/20">
+                <div>
+                  <span className="text-xs font-black uppercase text-slate-500 mr-2">{diaSemana}</span>
+                  <span className="text-lg font-black text-white">{diaMes}</span>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* COLUNA 2: CARDÁPIO */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Utensils className="w-5 h-5 text-primary" />
-              <h3 className="font-bold text-white uppercase text-sm tracking-widest">Cardápio da Semana</h3>
-            </div>
-            {isAdmin && (
-              <button
-                onClick={() => setShowAddCardapio(!showAddCardapio)}
-                className="text-primary hover:text-white text-xs font-bold uppercase flex gap-1 items-center bg-primary/10 px-3 py-1 rounded-lg"
-              >
-                <Plus className="w-3 h-3" /> {showAddCardapio ? 'Fechar' : 'Gerenciar'}
-              </button>
-            )}
-          </div>
-
-          {showAddCardapio && (
-            <div className="glass p-4 rounded-2xl border border-primary mb-4 animate-in fade-in">
-              <h4 className="text-white font-bold text-xs uppercase mb-3">
-                {newCardapio.data ? 'Editar/Adicionar Refeição' : 'Nova Refeição'}
-              </h4>
-              <div className="space-y-3">
-                <input
-                  type="date"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg h-10 px-3 text-white"
-                  value={newCardapio.data}
-                  onChange={e => setNewCardapio({ ...newCardapio, data: e.target.value })}
-                />
-                <textarea
-                  className="w-full bg-white/5 border border-white/10 rounded-lg h-20 p-3 text-white text-sm"
-                  placeholder="Cardápio do Almoço..."
-                  value={newCardapio.almoço}
-                  onChange={e => setNewCardapio({ ...newCardapio, almoço: e.target.value })}
-                />
-                <textarea
-                  className="w-full bg-white/5 border border-white/10 rounded-lg h-20 p-3 text-white text-sm"
-                  placeholder="Cardápio do Jantar..."
-                  value={newCardapio.jantar}
-                  onChange={e => setNewCardapio({ ...newCardapio, jantar: e.target.value })}
-                />
-                <div className="flex gap-2">
-                  <button onClick={handleAddCardapio} className="flex-1 bg-primary h-10 rounded-lg text-white font-bold text-xs uppercase">Salvar Cardápio</button>
-                  <button onClick={() => {
-                    setShowAddCardapio(false);
-                    setNewCardapio({ data: '', almoço: '', jantar: '' });
-                  }} className="flex-1 bg-white/5 h-10 rounded-lg text-slate-400 font-bold text-xs uppercase">Cancelar</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {cardapioOrdenado.length === 0 ? (
-            <div className="glass rounded-2xl border border-white/10 p-12 text-center">
-              <p className="text-slate-500 italic text-sm">Nenhum cardápio cadastrado.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {cardapioOrdenado.map((item) => (
-                <div key={item.data} className="glass rounded-2xl border border-white/10 overflow-hidden group">
-                  <div className="bg-white/5 p-3 flex justify-between items-center border-b border-white/5">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span className="font-bold text-white text-sm uppercase">
-                        {new Date(item.data + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'numeric' })}
-                      </span>
-                    </div>
-
-                    {isAdmin && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEditCardapio(item)}
-                          className="p-1.5 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition-all"
-                          title="Editar"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCardapio(item.data)}
-                          className="p-1.5 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-all"
-                          title="Excluir"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-
+                {bloqueio && (
+                  <div className="flex items-center gap-1 text-red-400 bg-red-400/10 px-2 py-1 rounded-lg">
+                    <AlertCircle className="w-3 h-3" />
+                    <span className="text-[9px] font-bold uppercase">{bloqueio.motivo}</span>
                   </div>
-                  <div className="p-4 grid grid-cols-1 gap-4 text-sm">
-                    <div>
-                      <span className="text-[10px] font-bold text-primary uppercase tracking-widest block mb-1">Almoço</span>
-                      <p className="text-slate-300 whitespace-pre-wrap">{item.almoço}</p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-primary uppercase tracking-widest block mb-1">Jantar</span>
-                      <p className="text-slate-300 whitespace-pre-wrap">{item.jantar}</p>
-                    </div>
-                  </div>
+                )}
+              </div>
+
+              {/* Prato do Dia (Resumo) */}
+              <div className="px-4 py-2 min-h-[40px] flex items-center">
+                {itemCardapio ? (
+                  <p className="text-[10px] text-slate-400 line-clamp-1 italic">
+                    🍽️ {itemCardapio.almoco}
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-slate-600 italic">Cardápio não cadastrado</p>
+                )}
+              </div>
+
+              {/* Botões de Ação */}
+              <div className="p-3 grid grid-cols-2 gap-3">
+                {/* Botão Almoço */}
+                <button
+                  onClick={() => !isLocked && onToggle(dayStr, 'almoco')}
+                  disabled={isLocked}
+                  className={`h-12 rounded-xl flex items-center justify-center gap-2 transition-all relative overflow-hidden ${almocoMarcado
+                      ? 'bg-emerald-500 text-black font-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                      : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                    } ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                >
+                  {almocoMarcado ? <Check className="w-5 h-5" /> : <Utensils className="w-4 h-4" />}
+                  <span className="text-xs font-bold uppercase">Almoço</span>
+                </button>
+
+                {/* Botão Jantar */}
+                <button
+                  onClick={() => !isLocked && onToggle(dayStr, 'jantar')}
+                  disabled={isLocked}
+                  className={`h-12 rounded-xl flex items-center justify-center gap-2 transition-all relative overflow-hidden ${jantarMarcado
+                      ? 'bg-indigo-500 text-white font-black shadow-[0_0_15px_rgba(99,102,241,0.4)]'
+                      : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                    } ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                >
+                  {jantarMarcado ? <Check className="w-5 h-5" /> : <Utensils className="w-4 h-4" />}
+                  <span className="text-xs font-bold uppercase">Jantar</span>
+                </button>
+              </div>
+
+              {/* Aviso de Bloqueio (Visual) */}
+              {isLocked && !isPast && !bloqueio && (
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex flex-col items-center justify-center text-slate-400 z-10">
+                  <Lock className="w-6 h-6 mb-1 opacity-50" />
+                  <span className="text-[9px] font-bold uppercase tracking-widest">Fechado</span>
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
 };
 
-export default CardapioView;
+export default CalendarView;

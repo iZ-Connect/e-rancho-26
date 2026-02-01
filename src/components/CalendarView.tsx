@@ -1,180 +1,243 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { Arranchamento, Cardapio, Militar, Bloqueio, UserRole } from '../types';
-import { isBusinessDay, getDayName, getMinArranchamentoDate, getMaxArranchamentoDate } from '../utils/helpers';
-import { ChevronLeft, ChevronRight, Check, X, Utensils, AlertCircle, Lock, Unlock } from 'lucide-react';
-import { dbService } from '../services/dbService';
+import {
+  Calendar as CalendarIcon,
+  Utensils,
+  Check,
+  AlertCircle,
+  Lock,
+  Clock
+} from 'lucide-react';
 
 interface CalendarViewProps {
   user: Militar;
   arranchamentos: Arranchamento[];
   cardapio: Cardapio[];
   bloqueios: Bloqueio[];
-  onToggle: (date: string, type: 'almoço' | 'jantar') => void;
-  refresh: () => void;
+  onToggle: (data: string, refeicao: 'almoco' | 'jantar') => void;
+  refresh?: () => void;
 }
 
-const CalendarView: React.FC<CalendarViewProps> = ({ user, arranchamentos, cardapio, bloqueios, onToggle, refresh }) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [showBlockModal, setShowBlockModal] = useState<{ date: string } | null>(null);
-  const [blockReason, setBlockReason] = useState('');
+const CalendarView: React.FC<CalendarViewProps> = ({
+  user,
+  arranchamentos,
+  cardapio,
+  bloqueios,
+  onToggle
+}) => {
 
-  const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-  const isAdmin = user.perfil === UserRole.ADM_LOCAL || user.perfil === UserRole.ADM_GERAL || user.cpf === '00000000001';
-
-  const handleBlockDay = async () => {
-    if (!showBlockModal || !blockReason) return;
-    await dbService.saveBloqueio({
-      data: showBlockModal.date,
-      motivo: blockReason,
-      criadoPor: user.nome_guerra
-    });
-    setBlockReason('');
-    setShowBlockModal(null);
-    await refresh();
-  };
-
-  const handleUnblockDay = async (date: string) => {
-    if (confirm('Deseja liberar este dia para arranchamento?')) {
-      await dbService.removeBloqueio(date);
-      await refresh();
+  // Função para calcular data com acréscimo de dias úteis
+  const addBusinessDays = (startDate: Date, daysToAdd: number) => {
+    let count = 0;
+    const currentDate = new Date(startDate);
+    while (count < daysToAdd) {
+      currentDate.setDate(currentDate.getDate() + 1);
+      const day = currentDate.getDay();
+      // 0 = Domingo, 6 = Sábado
+      if (day !== 0 && day !== 6) {
+        count++;
+      }
     }
+    return currentDate;
   };
 
-  const renderDays = () => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const totalDays = daysInMonth(year, month);
-    const days = [];
+  const getTodayLocal = () => {
+    const today = new Date();
+    const offset = today.getTimezoneOffset() * 60000;
+    return new Date(today.getTime() - offset).toISOString().split('T')[0];
+  }
 
-    // Calcula datas limites para o militar comum (Regra dos 5 dias)
-    const minDate = getMinArranchamentoDate();
-    const maxDate = getMaxArranchamentoDate(minDate);
+  const todayVal = getTodayLocal();
+  const isAdmGeral = user.perfil === UserRole.ADM_GERAL;
 
-    // Usuários de teste ou Admins podem ter regras diferentes, mas aqui seguimos o padrão
-    const isTestUser = user.cpf === '00000000001' || String(user.cpf) === '12345678910';
+  // Calcula a data limite para usuários comuns (Hoje + 5 dias úteis)
+  const deadlineDate = useMemo(() => {
+    const hoje = new Date();
+    // Ajuste de fuso para garantir cálculo correto
+    const offset = hoje.getTimezoneOffset() * 60000;
+    const localHoje = new Date(hoje.getTime() - offset);
+    localHoje.setHours(0, 0, 0, 0);
 
-    for (let i = 1; i <= totalDays; i++) {
-      const date = new Date(year, month, i);
-      const dateStr = date.toISOString().split('T')[0];
-      const isBusiness = isBusinessDay(date);
-      const bloqueio = bloqueios.find(b => b.data === dateStr);
+    return addBusinessDays(localHoje, 5); // 5 dias úteis de antecedência
+  }, []);
 
-      // Verifica se a data está dentro da janela permitida para arranchamento
-      const isInWindow = (date >= minDate && date <= maxDate);
+  // Gera os próximos 30 dias
+  const days = useMemo(() => {
+    const lista = [];
+    const hoje = new Date();
+    const offset = hoje.getTimezoneOffset() * 60000;
+    const localHoje = new Date(hoje.getTime() - offset);
 
-      // Permissão de edição: TestUser OU (Dentro da Janela E Sem Bloqueio)
-      // Nota: Admins podem bloquear/desbloquear, mas a regra de arranchar segue a janela para evitar bagunça
-      const canEdit = isTestUser || (isInWindow && !bloqueio);
+    for (let i = 0; i < 35; i++) { // Aumentei um pouco para garantir visualização pós-prazo
+      const d = new Date(localHoje);
+      d.setDate(localHoje.getDate() + i);
+      lista.push(d.toISOString().split('T')[0]);
+    }
+    return lista;
+  }, []);
 
-      const arrData = arranchamentos.find(a => a.data === dateStr && a.militar_cpf === user.cpf);
-      const dayCardapio = cardapio.find(c => c.data === dateStr);
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
 
-      days.push(
-        <div
-          key={dateStr}
-          className={`p-4 rounded-2xl border flex flex-col gap-3 relative overflow-hidden transition-all ${bloqueio
-              ? 'bg-red-900/20 border-red-500/50' // VERMELHO SE BLOQUEADO
-              : 'glass border-white/5'
-            } ${(!isBusiness || (bloqueio && !isAdmin)) ? 'opacity-60' : ''}`}
-        >
-          {/* Faixa superior indicando bloqueio */}
-          {bloqueio && <div className="absolute top-0 right-0 w-full h-1 bg-red-500" />}
+      {/* Cabeçalho */}
+      <div className="flex items-center justify-between glass p-6 rounded-2xl border border-white/10 sticky top-0 z-10">
+        <div>
+          <h2 className="text-xl font-black text-white uppercase tracking-tight flex items-center gap-2">
+            <CalendarIcon className="w-6 h-6 text-primary" /> Arranchamento
+          </h2>
+          <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
+            {isAdmGeral ? "Modo Teste: Acesso Total Liberado" : "Planejamento (Antecedência: 5 dias úteis)"}
+          </p>
+        </div>
+        <div className="text-right hidden sm:block">
+          <p className="text-[10px] text-slate-500 font-bold uppercase">Hoje</p>
+          <p className="text-lg font-black text-white">{new Date().toLocaleDateString('pt-BR')}</p>
+        </div>
+      </div>
 
-          <div className="flex justify-between items-start">
-            <div>
-              <p className={`text-xl font-black ${bloqueio ? 'text-red-400' : 'text-white'}`}>{i}</p>
-              <p className={`text-[9px] font-bold uppercase tracking-tighter ${bloqueio ? 'text-red-300' : 'text-slate-400'}`}>{getDayName(dateStr)}</p>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {days.map(dayStr => {
+          const dateObj = new Date(dayStr);
+          // Ajuste para comparação correta de datas (zera horas)
+          const dateObjCompare = new Date(dateObj);
+          dateObjCompare.setHours(0, 0, 0, 0);
+          dateObjCompare.setDate(dateObjCompare.getDate() + 1); // Compensação de timezone simples para comparação
 
-            <div className="flex gap-1">
-              {isAdmin && (
-                bloqueio
-                  ? <button onClick={() => handleUnblockDay(dateStr)} className="p-1.5 bg-green-500/20 text-green-500 rounded-lg hover:bg-green-500/30 transition-colors" title="Desbloquear"><Unlock className="w-3.5 h-3.5" /></button>
-                  : <button onClick={() => setShowBlockModal({ date: dateStr })} className="p-1.5 bg-slate-500/20 text-slate-400 rounded-lg hover:bg-slate-500/30 transition-colors" title="Bloquear"><Lock className="w-3.5 h-3.5" /></button>
+          const diaSemana = dateObj.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+          const diaMes = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+          const agendamento = arranchamentos.find(a => a.data === dayStr);
+          const almocoMarcado = agendamento?.almoco || false;
+          const jantarMarcado = agendamento?.jantar || false;
+
+          const itemCardapio = cardapio.find(c => c.data === dayStr);
+          const bloqueio = bloqueios.find(b => b.data === dayStr);
+
+          // LÓGICA DE TRAVAMENTO
+          const isPast = dayStr < todayVal;
+          const isToday = dayStr === todayVal;
+
+          // Verifica se a data é anterior ao prazo de 5 dias úteis
+          // Nota: deadlineDate já está calculado corretamente acima
+          // Criamos um new Date(dayStr) para comparar
+          const currentDayObj = new Date(dayStr);
+          currentDayObj.setHours(0, 0, 0, 0);
+          // Pequeno ajuste de fuso para garantir que a comparação seja justa
+          const offset = currentDayObj.getTimezoneOffset() * 60000;
+          const localCurrentDay = new Date(currentDayObj.getTime() + offset);
+
+          const isBeforeDeadline = localCurrentDay < deadlineDate;
+
+          let isLocked = false;
+          let lockReason = "";
+
+          if (isPast) {
+            isLocked = true;
+            lockReason = "Data Passada";
+          } else if (bloqueio) {
+            isLocked = true;
+            lockReason = bloqueio.motivo; // Bloqueio administrativo (feriado, etc)
+          } else if (isAdmGeral) {
+            // ADM GERAL: Só bloqueia se for passado ou tiver bloqueio explícito (feriado)
+            // LIBERA O RESTO (inclusive hoje e dentro do prazo de 5 dias)
+            isLocked = false;
+          } else {
+            // USUÁRIO COMUM: Aplica a regra dos 5 dias úteis
+            if (isBeforeDeadline) {
+              isLocked = true;
+              lockReason = "Fora do Prazo";
+            }
+          }
+
+          return (
+            <div
+              key={dayStr}
+              className={`relative overflow-hidden rounded-2xl border transition-all duration-300 ${isToday ? 'bg-white/5 border-primary/50 ring-1 ring-primary/30' :
+                  isPast ? 'bg-black/20 border-white/5 opacity-60' :
+                    'glass border-white/10 hover:border-white/20'
+                }`}
+            >
+              {isToday && (
+                <div className="absolute top-0 right-0 bg-primary text-white text-[9px] font-black px-2 py-1 rounded-bl-xl uppercase tracking-widest z-20">
+                  Hoje
+                </div>
               )}
-            </div>
-          </div>
 
-          {/* Mensagem de Bloqueio */}
-          {bloqueio && (
-            <div className="bg-red-500/10 border border-red-500/20 p-2 rounded-lg">
-              <p className="text-[9px] font-black text-red-500 uppercase flex items-center gap-1 mb-1"><AlertCircle className="w-3 h-3" /> Bloqueado</p>
-              <p className="text-[10px] text-white font-medium leading-tight">{bloqueio.motivo}</p>
-            </div>
-          )}
+              {/* Título do Dia */}
+              <div className="p-4 border-b border-white/5 flex justify-between items-center bg-black/20">
+                <div>
+                  <span className="text-xs font-black uppercase text-slate-500 mr-2">{diaSemana}</span>
+                  <span className="text-lg font-black text-white">{diaMes}</span>
+                </div>
+                {bloqueio && (
+                  <div className="flex items-center gap-1 text-red-400 bg-red-400/10 px-2 py-1 rounded-lg">
+                    <AlertCircle className="w-3 h-3" />
+                    <span className="text-[9px] font-bold uppercase">{bloqueio.motivo}</span>
+                  </div>
+                )}
+              </div>
 
-          {/* Botões de Refeição (Só aparecem se for dia útil e não estiver bloqueado para o usuário comum) */}
-          {isBusiness && (
-            <>
-              <div className="flex flex-col gap-1.5 mt-auto">
+              {/* Prato do Dia (Resumo) */}
+              <div className="px-4 py-2 min-h-[40px] flex items-center">
+                {itemCardapio ? (
+                  <p className="text-[10px] text-slate-400 line-clamp-1 italic">
+                    🍽️ {itemCardapio.almoco}
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-slate-600 italic">Cardápio não cadastrado</p>
+                )}
+              </div>
+
+              {/* Botões de Ação */}
+              <div className="p-3 grid grid-cols-2 gap-3">
+                {/* Botão Almoço */}
                 <button
-                  disabled={!canEdit}
-                  onClick={() => onToggle(dateStr, 'almoço')}
-                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-bold transition-all ${arrData?.almoco ? 'bg-primary text-white shadow-lg' : 'bg-white/5 text-slate-400'
-                    } ${!canEdit ? 'cursor-not-allowed opacity-50' : 'hover:scale-105'}`}
+                  onClick={() => !isLocked && onToggle(dayStr, 'almoco')}
+                  disabled={isLocked}
+                  className={`h-12 rounded-xl flex items-center justify-center gap-2 transition-all relative overflow-hidden ${almocoMarcado
+                      ? 'bg-emerald-500 text-black font-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                      : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                    } ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                 >
-                  <div className="flex items-center gap-2"><Utensils className="w-3 h-3" /> Almoço</div>
-                  {arrData?.almoco ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                  {almocoMarcado ? <Check className="w-5 h-5" /> : <Utensils className="w-4 h-4" />}
+                  <span className="text-xs font-bold uppercase">Almoço</span>
                 </button>
 
+                {/* Botão Jantar */}
                 <button
-                  disabled={!canEdit}
-                  onClick={() => onToggle(dateStr, 'jantar')}
-                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-bold transition-all ${arrData?.jantar ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-slate-400'
-                    } ${!canEdit ? 'cursor-not-allowed opacity-50' : 'hover:scale-105'}`}
+                  onClick={() => !isLocked && onToggle(dayStr, 'jantar')}
+                  disabled={isLocked}
+                  className={`h-12 rounded-xl flex items-center justify-center gap-2 transition-all relative overflow-hidden ${jantarMarcado
+                      ? 'bg-indigo-500 text-white font-black shadow-[0_0_15px_rgba(99,102,241,0.4)]'
+                      : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                    } ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                 >
-                  <div className="flex items-center gap-2"><Utensils className="w-3 h-3" /> Jantar</div>
-                  {arrData?.jantar ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                  {jantarMarcado ? <Check className="w-5 h-5" /> : <Utensils className="w-4 h-4" />}
+                  <span className="text-xs font-bold uppercase">Jantar</span>
                 </button>
               </div>
 
-              {/* Cardápio do dia */}
-              {dayCardapio && (
-                <div className="text-[9px] text-slate-400 bg-white/5 p-1.5 rounded-lg line-clamp-1 mt-1 border border-white/5">
-                  {dayCardapio.almoço}
+              {/* Aviso de Bloqueio (Visual) */}
+              {isLocked && !isPast && !bloqueio && (
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex flex-col items-center justify-center text-slate-400 z-10">
+                  {isBeforeDeadline && !isAdmGeral ? (
+                    <>
+                      <Clock className="w-6 h-6 mb-1 opacity-50 text-amber-500" />
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-amber-500">Fora do Prazo</span>
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500">(5 dias úteis)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-6 h-6 mb-1 opacity-50" />
+                      <span className="text-[9px] font-bold uppercase tracking-widest">Fechado</span>
+                    </>
+                  )}
                 </div>
               )}
-            </>
-          )}
-        </div>
-      );
-    }
-    return days;
-  };
-
-  return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-3 uppercase">Arranchamento</h2>
-        <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl">
-          <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-2 hover:bg-white/10 rounded-lg text-slate-400"><ChevronLeft className="w-5 h-5" /></button>
-          <span className="text-sm font-black text-white px-4 uppercase tracking-widest min-w-[150px] text-center">{currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</span>
-          <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-2 hover:bg-white/10 rounded-lg text-slate-400"><ChevronRight className="w-5 h-5" /></button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-        {renderDays()}
-      </div>
-
-      {showBlockModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="w-full max-w-md glass rounded-3xl border border-white/10 p-8 shadow-2xl">
-            <h3 className="text-xl font-black text-white uppercase mb-4 flex items-center gap-2"><Lock className="w-6 h-6 text-amber-500" /> Bloquear Dia</h3>
-            <p className="text-sm text-slate-400 mb-4">Motivo para o dia <span className="text-white font-bold">{showBlockModal.date.split('-').reverse().join('/')}</span></p>
-            <textarea
-              value={blockReason}
-              onChange={(e) => setBlockReason(e.target.value)}
-              placeholder="Ex: Manutenção do Refeitório, Dedetização..."
-              className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:ring-2 focus:ring-primary outline-none resize-none mb-6 placeholder-slate-500"
-            />
-            <div className="flex gap-4">
-              <button onClick={handleBlockDay} className="flex-1 h-12 bg-primary text-white font-bold rounded-xl uppercase text-xs hover:bg-primary/90 transition-colors">Confirmar</button>
-              <button onClick={() => setShowBlockModal(null)} className="flex-1 h-12 bg-white/5 text-slate-400 font-bold rounded-xl uppercase text-xs hover:bg-white/10 transition-colors">Cancelar</button>
             </div>
-          </div>
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 };

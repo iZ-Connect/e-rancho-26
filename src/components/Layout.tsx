@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   CalendarRange,
   Utensils,
-  ClipboardCheck,
   LogOut,
   Menu as MenuIcon,
   Scan,
@@ -13,8 +12,7 @@ import {
   WifiOff,
   Info,
   Users,
-  FileText,
-  Printer // 1. Importei o ícone da impressora
+  Printer // Mantive o ícone
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -30,7 +28,6 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activeTab, setActiveTab, isOnline, syncing }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Definição dos itens de menu e quem pode ver o quê
   const navItems = [
     {
       id: 'dashboard',
@@ -38,13 +35,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activeTab, se
       icon: LayoutDashboard,
       roles: ['ADM_LOCAL', 'ADM_GERAL']
     },
-    {
-      id: 'relatorios',
-      label: 'Relatórios',
-      icon: FileText,
-      roles: ['ADM_LOCAL', 'ADM_GERAL']
-    },
-    // 2. NOVO MENU: IMPRESSÃO EM LOTE (Só Admins)
+    // REMOVIDO: Menu Relatórios
     {
       id: 'impressao',
       label: 'Imprimir IDs',
@@ -96,7 +87,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activeTab, se
   });
 
   const nomeExibicao = user.nome_guerra || user["Nome de Guerra"] || "MILITAR";
-  const postoExibicao = user.posto_grad || user["Posto"] || "---";
+  const postoExibicao = user.posto || user.posto_grad || user["Posto"] || "---";
 
   return (
     <div className="min-h-screen flex bg-background text-slate-100 flex-col lg:flex-row">
@@ -104,7 +95,6 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activeTab, se
         <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
       )}
 
-      {/* 3. Adicionei 'no-print' aqui para a barra lateral sumir na impressão */}
       <aside className={`fixed inset-y-0 left-0 w-64 glass border-r border-white/10 z-50 transform transition-transform duration-300 lg:relative lg:transform-none ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} no-print`}>
         <div className="p-6 border-b border-white/5 flex items-center gap-3">
           <div className="p-2 bg-primary rounded-lg">

@@ -7,13 +7,11 @@ const SEEN_NOTICES_KEY = 'erancho_seen_notices';
 
 export const dbService = {
 
-  // --- INICIALIZAÇÃO ---
   async init() {
     console.log("Serviço Firebase Iniciado");
     return true;
   },
 
-  // --- SESSÃO DO USUÁRIO ---
   saveSession(user: Militar) {
     localStorage.setItem(SESSION_KEY, JSON.stringify(user));
   },
@@ -27,7 +25,6 @@ export const dbService = {
     localStorage.removeItem(SESSION_KEY);
   },
 
-  // --- LOGIN E MILITARES ---
   async login(cpf: string, pin: string): Promise<Militar> {
     try {
       const dbRef = ref(db, 'militares');
@@ -38,6 +35,8 @@ export const dbService = {
         const militares = Object.values(data) as any[];
 
         const militar = militares.find(m => {
+          // Proteção contra nulos
+          if (!m) return false;
           const dbCpf = String(m.cpf || '').trim();
           const dbPin = String(m.pin || '').trim();
           return dbCpf === cpf.trim() && dbPin === pin.trim();
@@ -54,24 +53,45 @@ export const dbService = {
     }
   },
 
+  // --- CORREÇÃO PRINCIPAL AQUI ---
   async getMilitares(): Promise<Militar[]> {
     const snapshot = await get(ref(db, 'militares'));
-    return snapshot.exists() ? Object.values(snapshot.val()) as Militar[] : [];
+    if (snapshot.exists()) {
+      const rawData = Object.values(snapshot.val());
+      // FILTRA APENAS REGISTROS VÁLIDOS (que têm CPF)
+      return rawData.filter((m: any) => m && m.cpf) as Militar[];
+    }
+    return [];
   },
 
-  async getMilitarByEmail(email: string) {
-    const militares = await this.getMilitares();
-    return militares.find((m: any) =>
-      String(m.email || '').toLowerCase() === email.toLowerCase()
-    ) || null;
+  async addMilitar(militar: Militar) {
+    const newId = Date.now().toString();
+    const militarComId = { ...militar, id: newId };
+    await set(ref(db, `militares/${newId}`), militarComId);
   },
 
   async updateMilitar(militar: Militar) {
-    if (militar.id === undefined) throw new Error("ID inválido");
+    if (!militar.id) throw new Error("ID inválido");
     await update(ref(db, `militares/${militar.id}`), militar);
   },
 
-  // --- CARDÁPIO ---
+  async deleteMilitar(cpf: string) {
+    const militares = await this.getMilitares();
+    const militar = militares.find(m => String(m.cpf) === String(cpf));
+
+    if (militar && militar.id) {
+      await remove(ref(db, `militares/${militar.id}`));
+    }
+
+    const arranchamentos = await this.getArranchamentos();
+    const agendamentosDoMilitar = arranchamentos.filter(a => String(a.militar_cpf) === String(cpf));
+
+    for (const agendamento of agendamentosDoMilitar) {
+      const idAgendamento = `${agendamento.militar_cpf}_${agendamento.data}`;
+      await remove(ref(db, `arranchamentos/${idAgendamento}`));
+    }
+  },
+
   async saveCardapio(cardapio: Cardapio) {
     await set(ref(db, `cardapio/${cardapio.data}`), cardapio);
   },
@@ -85,13 +105,11 @@ export const dbService = {
     return snapshot.exists() ? Object.values(snapshot.val()) as Cardapio[] : [];
   },
 
-  // --- AVISOS (ATUALIZADO PARA EXCLUIR DE VERDADE) ---
   async saveAviso(aviso: Aviso) {
     await set(ref(db, `avisos/${aviso.id}`), aviso);
   },
 
   async deleteAviso(id: string) {
-    // Agora usa REMOVE para apagar do banco, não apenas desativar
     await remove(ref(db, `avisos/${id}`));
   },
 
@@ -103,7 +121,6 @@ export const dbService = {
   async getUnseenActiveNotices(): Promise<Aviso[]> {
     const avisos = await this.getAvisos();
     const seenIds = JSON.parse(localStorage.getItem(SEEN_NOTICES_KEY) || '[]');
-    // Filtra avisos que existem e não foram vistos (removido filtro de 'ativo' pois agora apagamos os inativos)
     return avisos.filter(a => !seenIds.includes(a.id));
   },
 
@@ -115,7 +132,6 @@ export const dbService = {
     }
   },
 
-  // --- ARRANCHAMENTOS ---
   async saveArranchamento(cpf: string, data: string, refeicao: string) {
     const id = `${cpf}_${data}`;
     const arranchRef = ref(db, `arranchamentos/${id}`);
@@ -157,16 +173,6 @@ export const dbService = {
     }
   },
 
-  async toggleArranchamento(arranchamento: Arranchamento, active: boolean) {
-    const id = `${arranchamento.militar_cpf}_${arranchamento.data}`;
-    const arranchRef = ref(db, `arranchamentos/${id}`);
-    if (active) {
-      await set(arranchRef, { ...arranchamento, timestamp: new Date().toISOString() });
-    } else {
-      await remove(arranchRef);
-    }
-  },
-
   async getArranchamentos(militarCpf?: string): Promise<Arranchamento[]> {
     const snapshot = await get(ref(db, 'arranchamentos'));
     if (snapshot.exists()) {
@@ -176,7 +182,6 @@ export const dbService = {
     return [];
   },
 
-  // --- BLOQUEIOS ---
   async saveBloqueio(bloqueio: Bloqueio) {
     await set(ref(db, `bloqueios/${bloqueio.data}`), bloqueio);
   },
@@ -190,17 +195,28 @@ export const dbService = {
     return snapshot.exists() ? Object.values(snapshot.val()) as Bloqueio[] : [];
   },
 
-  // --- PRESENÇA ---
   async togglePresenca(cpf: string, data: string, tipo: 'almoco' | 'jantar') {
     const id = `${cpf}_${data}`;
     const arranchRef = ref(db, `arranchamentos/${id}`);
 
     const snapshot = await get(arranchRef);
-    if (snapshot.exists()) {
-      const updates: any = {};
-      if (tipo === 'almoco') updates.presenca_almoco = true;
-      if (tipo === 'jantar') updates.presenca_jantar = true;
-      await update(arranchRef, updates);
+    let record = snapshot.val();
+
+    if (!record) {
+      record = {
+        id: id,
+        militar_cpf: cpf,
+        data: data,
+        almoco: false,
+        jantar: false,
+        presenca_almoco: false,
+        presenca_jantar: false
+      };
     }
+
+    if (tipo === 'almoco') record.presenca_almoco = true;
+    if (tipo === 'jantar') record.presenca_jantar = true;
+
+    await set(arranchRef, record);
   }
 };

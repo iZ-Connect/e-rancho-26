@@ -35,7 +35,6 @@ const Dashboard: React.FC<DashboardProps> = ({ arranchamentos, militares, bloque
 
   const isToday = filterDate === todayVal;
 
-  // Atualiza título da aba para o arquivo PDF sair com nome correto
   useEffect(() => {
     const dataFormatada = filterDate.split('-').reverse().join('_');
     const refeicaoNome = mealType === 'almoco' ? 'ALMOCO' : 'JANTAR';
@@ -60,11 +59,12 @@ const Dashboard: React.FC<DashboardProps> = ({ arranchamentos, militares, bloque
       const isArranchado = mealType === 'almoco' ? item.almoco : item.jantar;
       const isPresente = mealType === 'almoco' ? item.presenca_almoco : item.presenca_jantar;
       const isLiberadoNaHora = isPresente && !isArranchado;
+      const postoCorrigido = militar ? (militar.posto || militar["Posto"] || militar.posto_grad) : '---';
 
       return {
         ...item,
         nome: militar ? (militar["Nome de Guerra"] || militar.nome_guerra) : 'Desconhecido',
-        posto: militar ? (militar["Posto"] || militar.posto_grad) : '---',
+        posto: postoCorrigido,
         isArranchado,
         isPresente,
         isLiberadoNaHora
@@ -108,8 +108,6 @@ const Dashboard: React.FC<DashboardProps> = ({ arranchamentos, militares, bloque
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-
-      {/* --- CABEÇALHO DA TELA (Oculto na Impressão) --- */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
         <div>
           <h2 className="text-2xl font-black text-white uppercase tracking-tight">Painel de Controle</h2>
@@ -163,17 +161,14 @@ const Dashboard: React.FC<DashboardProps> = ({ arranchamentos, militares, bloque
         </div>
       )}
 
-      {/* --- CARDS (Ocultos na Impressão) --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 no-print">
         <StatCard title={`Previsto (${mealType})`} value={dashboardData.totalPrevisto} icon={Utensils} color="blue" />
         <StatCard title="Presentes Agora" value={dashboardData.totalPresente} icon={UserCheck} color="green" />
         <StatCard title="Adesão" value={dashboardData.percentual} unit="%" icon={Percent} color={dashboardData.percentual > 80 ? "green" : "amber"} />
       </div>
 
-      {/* --- LISTA E RELATÓRIO --- */}
       <div className="glass rounded-2xl border border-white/10 overflow-hidden print:border-none print:shadow-none print:bg-white print:text-black">
 
-        {/* === CABEÇALHO DE IMPRESSÃO === */}
         <div className="hidden print:block text-center mb-6 pt-4">
           <h1 className="text-5xl font-black mb-1 leading-none text-black">HGeSM</h1>
           <h2 className="text-2xl font-bold uppercase border-b-2 border-black pb-1 mb-2 text-black">
@@ -188,7 +183,6 @@ const Dashboard: React.FC<DashboardProps> = ({ arranchamentos, militares, bloque
           </div>
         </div>
 
-        {/* Busca (Tela) */}
         <div className="p-4 border-b border-white/5 bg-white/5 flex items-center gap-3 no-print">
           <Search className="w-5 h-5 text-slate-400" />
           <input
@@ -200,14 +194,12 @@ const Dashboard: React.FC<DashboardProps> = ({ arranchamentos, militares, bloque
           />
         </div>
 
-        {/* Lista de Nomes */}
         <div className="max-h-[500px] overflow-y-auto print:max-h-none print:overflow-visible">
           {dashboardData.list.length === 0 ? (
             <div className="p-10 text-center text-slate-500 font-bold uppercase text-sm">
               Nenhum militar registrado.
             </div>
           ) : (
-            // GRID DE 3 COLUNAS PARA ECONOMIZAR PAPEL
             <div className="divide-y divide-white/5 print:divide-y-0 print:grid print:grid-cols-3 print:gap-x-4 print:gap-y-2">
               {dashboardData.list.map(item => (
                 <div
@@ -216,10 +208,8 @@ const Dashboard: React.FC<DashboardProps> = ({ arranchamentos, militares, bloque
                     ${item.isLiberadoNaHora ? 'bg-amber-500/10 border-l-4 border-amber-500' : ''}
                     ${item.isPresente && !item.isLiberadoNaHora ? 'bg-emerald-500/5' : ''}
                     hover:bg-white/5 
-                    /* Estilos específicos de Impressão */
                     print:border print:border-black print:rounded-none print:p-1.5 print:break-inside-avoid print:bg-white print:text-black print:flex-row print:shadow-none print:h-auto`}
                 >
-
                   {/* --- VISUALIZAÇÃO DE TELA (APP) --- */}
                   <div className="flex items-center gap-4 print:hidden">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs border-2 no-print ${item.isPresente ? 'bg-emerald-500 text-black border-emerald-400' : 'bg-slate-700 text-slate-400 border-slate-600'}`}>
@@ -234,30 +224,26 @@ const Dashboard: React.FC<DashboardProps> = ({ arranchamentos, militares, bloque
                           </span>
                         )}
                       </h4>
+                      {/* CORREÇÃO: CPF REMOVIDO DAQUI */}
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                        {item.posto} • CPF: {String(item.militar_cpf).slice(0, 3)}...
+                        {item.posto}
                       </p>
                     </div>
                   </div>
 
-                  {/* --- VISUALIZAÇÃO DE IMPRESSÃO (CHECKBOX NA ESQUERDA) --- */}
+                  {/* --- VISUALIZAÇÃO DE IMPRESSÃO --- */}
                   <div className="hidden print:flex flex-row items-center w-full justify-start gap-2">
-
-                    {/* CAIXA DE CHECKBOX */}
                     <div className="w-4 h-4 border border-black shrink-0 flex items-center justify-center">
                       {item.isPresente && (
                         <span className="text-xs font-bold text-black leading-none">X</span>
                       )}
                     </div>
-
-                    {/* NOME E POSTO */}
                     <span className="font-bold text-[11px] uppercase truncate text-black leading-tight text-left">
                       {item.posto} {item.nome}
                       {item.isLiberadoNaHora && <span className="ml-1 text-[9px] font-bold">(LIB)</span>}
                     </span>
                   </div>
 
-                  {/* Botão de Ação (Tela) */}
                   <button
                     onClick={() => isToday && handleTogglePresenca(String(item.militar_cpf))}
                     disabled={!isToday || loadingAction === String(item.militar_cpf)}

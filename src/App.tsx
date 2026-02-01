@@ -5,13 +5,11 @@ import Layout from './components/Layout';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
-import Presence from './components/Presence';
 import MyID from './components/MyID';
 import Scanner from './components/Scanner';
 import CardapioView from './components/CardapioView';
 import About from './components/About';
 import MilitaresList from './components/MilitaresList';
-import Relatorio from './components/Relatorio';
 import RelatorioImpressao from './components/RelatorioImpressao';
 import { Megaphone, CheckCircle2, ChevronLeft } from 'lucide-react';
 
@@ -130,7 +128,6 @@ const App: React.FC = () => {
         isOnline={isOnline}
         syncing={syncing}
       >
-        {/* Passando BLOQUEIOS para o Dashboard */}
         {activeTab === 'dashboard' && (
           <Dashboard
             arranchamentos={arranchamentos}
@@ -140,9 +137,7 @@ const App: React.FC = () => {
           />
         )}
 
-        {activeTab === 'relatorios' && isAdmin && (
-          <Relatorio militares={militares} arranchamentos={arranchamentos} />
-        )}
+        {/* Antigo menu 'relatorios' removido daqui */}
 
         {activeTab === 'impressao' && isAdmin && (
           <RelatorioImpressao militares={militares} />
@@ -152,6 +147,7 @@ const App: React.FC = () => {
           <MyID
             user={auth.user}
             viewer={auth.user}
+            onUpdateMilitar={handleAdminUpdateMilitar}
             onUpdatePin={handleUpdatePin}
           />
         )}
@@ -178,17 +174,6 @@ const App: React.FC = () => {
               await refreshData();
             }}
             refresh={refreshData}
-          />
-        )}
-
-        {activeTab === 'presenca' && (
-          <Presence
-            arranchamentos={arranchamentos}
-            militares={militares}
-            onTogglePresenca={async (cpf, d, t) => {
-              await dbService.togglePresenca(cpf, d, t);
-              await refreshData();
-            }}
           />
         )}
 
@@ -225,6 +210,7 @@ const App: React.FC = () => {
               militares={militares}
               currentUser={auth.user}
               onSelectMilitar={(m) => setSelectedMilitar(m)}
+              onRefresh={refreshData}
             />
           )
         )}
