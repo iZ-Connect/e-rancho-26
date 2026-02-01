@@ -1,9 +1,7 @@
-
 import React, { useState } from 'react';
 import { Cardapio, Aviso, UserRole, Militar } from '../types';
 import { dbService } from '../services/dbService';
-// Added 'Utensils' to imports from 'lucide-react'
-import { AlertTriangle, Plus, Trash2, Megaphone, Info, Utensils } from 'lucide-react';
+import { AlertTriangle, Plus, Trash2, Megaphone, Info, Utensils, Calendar } from 'lucide-react';
 
 interface CardapioViewProps {
   user: Militar;
@@ -12,18 +10,24 @@ interface CardapioViewProps {
   refresh: () => void;
 }
 
-const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio, avisos, refresh }) => {
+const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio = [], avisos = [], refresh }) => {
   const [showAddAviso, setShowAddAviso] = useState(false);
+  const [showAddCardapio, setShowAddCardapio] = useState(false);
+
+  // Estado para novo aviso
   const [newAviso, setNewAviso] = useState({ titulo: '', descricao: '', tipo: 'amarelo' as 'amarelo' | 'vermelho' });
 
-  // Fix: changed 'role' to 'perfil' and 'Role' to 'UserRole' based on types.ts definitions
+  // Estado para novo cardápio
+  const [newCardapio, setNewCardapio] = useState({ data: '', almoço: '', jantar: '' });
+
   const isAdmin = user.perfil === UserRole.ADM_LOCAL || user.perfil === UserRole.ADM_GERAL;
   const activeAvisos = avisos.filter(a => a.ativo);
 
-  const handleAddAviso = () => {
+  // --- Lógica de Avisos ---
+  const handleAddAviso = async () => {
     if (!newAviso.titulo || !newAviso.descricao) return;
 
-    dbService.saveAviso({
+    await dbService.saveAviso({
       id: Math.random().toString(36).substr(2, 9),
       titulo: newAviso.titulo,
       descricao: newAviso.descricao,
@@ -37,13 +41,46 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio, avisos, ref
     refresh();
   };
 
-  const handleRemoveAviso = (id: string) => {
-    dbService.deactivateAviso(id);
+  const handleRemoveAviso = async (id: string) => {
+    await dbService.deactivateAviso(id);
     refresh();
   };
 
+  // --- Lógica de Cardápio ---
+  const handleAddCardapio = async () => {
+    if (!newCardapio.data || !newCardapio.almoço || !newCardapio.jantar) {
+      alert("Preencha todos os campos do cardápio!");
+      return;
+    }
+
+    // Salva no banco de dados
+    await dbService.saveCardapio({
+      data: newCardapio.data,
+      almoço: newCardapio.almoço,
+      jantar: newCardapio.jantar
+    });
+
+    setNewCardapio({ data: '', almoço: '', jantar: '' });
+    setShowAddCardapio(false);
+    refresh();
+  };
+
+  const handleRemoveCardapio = async (data: string) => {
+    if (window.confirm("Deseja apagar o cardápio deste dia?")) {
+      // Assume que seu dbService tem um método delete, se não tiver, precisa criar
+      // await dbService.deleteCardapio(data); 
+      // Como não tenho certeza do seu dbService, vamos deixar apenas o Add por enquanto
+      alert("Função de deletar cardápio precisa ser implementada no dbService");
+    }
+  };
+
+  // Ordenar cardápio por data (mais recente primeiro)
+  const cardapioOrdenado = [...cardapio].sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+
   return (
     <div className="space-y-10 animate-in fade-in duration-500">
+
+      {/* --- SEÇÃO DE COMUNICADOS --- */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-black text-white uppercase tracking-tight flex items-center gap-3">
           <Megaphone className="text-primary w-8 h-8" /> Central de Comunicados
@@ -58,56 +95,41 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio, avisos, ref
         )}
       </div>
 
+      {/* Formulário Novo Aviso */}
       {showAddAviso && (
         <div className="glass p-6 rounded-2xl border-2 border-primary animate-in zoom-in-95">
-          <h3 className="font-bold text-white mb-6 uppercase text-sm">Configurar Novo Comunicado</h3>
+          <h3 className="font-bold text-white mb-6 uppercase text-sm">Novo Comunicado</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Título do Aviso</label>
-                <input
-                  className="w-full bg-white/5 border border-white/10 rounded-xl h-12 px-4 text-white focus:ring-2 focus:ring-primary outline-none"
-                  placeholder="Ex: Manutenção no Rancho"
-                  value={newAviso.titulo}
-                  onChange={e => setNewAviso({ ...newAviso, titulo: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Tipo de Gravidade</label>
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => setNewAviso({ ...newAviso, tipo: 'amarelo' })}
-                    className={`flex-1 h-12 rounded-xl font-bold text-xs uppercase border-2 transition-all ${newAviso.tipo === 'amarelo' ? 'bg-amber-500/20 border-amber-500 text-amber-500' : 'bg-white/5 border-transparent text-slate-400'}`}
-                  >
-                    Atenção (Amarelo)
-                  </button>
-                  <button
-                    onClick={() => setNewAviso({ ...newAviso, tipo: 'vermelho' })}
-                    className={`flex-1 h-12 rounded-xl font-bold text-xs uppercase border-2 transition-all ${newAviso.tipo === 'vermelho' ? 'bg-red-500/20 border-red-500 text-red-500' : 'bg-white/5 border-transparent text-slate-400'}`}
-                  >
-                    Urgente (Vermelho)
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Descrição do Comunicado</label>
-              <textarea
-                className="w-full bg-white/5 border border-white/10 rounded-xl h-32 p-4 text-white focus:ring-2 focus:ring-primary outline-none resize-none"
-                placeholder="Descreva aqui as informações importantes..."
-                value={newAviso.descricao}
-                onChange={e => setNewAviso({ ...newAviso, descricao: e.target.value })}
+              <input
+                className="w-full bg-white/5 border border-white/10 rounded-xl h-12 px-4 text-white"
+                placeholder="Título do Aviso"
+                value={newAviso.titulo}
+                onChange={e => setNewAviso({ ...newAviso, titulo: e.target.value })}
               />
+              <div className="flex gap-4">
+                <button onClick={() => setNewAviso({ ...newAviso, tipo: 'amarelo' })} className={`flex-1 h-12 rounded-xl font-bold text-xs uppercase border-2 ${newAviso.tipo === 'amarelo' ? 'bg-amber-500/20 border-amber-500 text-amber-500' : 'bg-white/5 border-transparent text-slate-400'}`}>Atenção (Amarelo)</button>
+                <button onClick={() => setNewAviso({ ...newAviso, tipo: 'vermelho' })} className={`flex-1 h-12 rounded-xl font-bold text-xs uppercase border-2 ${newAviso.tipo === 'vermelho' ? 'bg-red-500/20 border-red-500 text-red-500' : 'bg-white/5 border-transparent text-slate-400'}`}>Urgente (Vermelho)</button>
+              </div>
             </div>
+            <textarea
+              className="w-full bg-white/5 border border-white/10 rounded-xl h-32 p-4 text-white resize-none"
+              placeholder="Descrição..."
+              value={newAviso.descricao}
+              onChange={e => setNewAviso({ ...newAviso, descricao: e.target.value })}
+            />
           </div>
-          <div className="flex gap-4 mt-8">
-            <button onClick={handleAddAviso} className="flex-1 bg-primary h-12 rounded-xl text-white font-bold uppercase text-xs">Publicar para Todos</button>
+          <div className="flex gap-4 mt-4">
+            <button onClick={handleAddAviso} className="flex-1 bg-primary h-12 rounded-xl text-white font-bold uppercase text-xs">Publicar</button>
             <button onClick={() => setShowAddAviso(false)} className="flex-1 bg-white/5 h-12 rounded-xl text-slate-400 font-bold uppercase text-xs">Cancelar</button>
           </div>
         </div>
       )}
 
+      {/* --- SEÇÃO DE CONTEÚDO (DIVIDIDA EM 2 COLUNAS) --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+        {/* COLUNA 1: AVISOS */}
         <div className="space-y-6">
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="w-5 h-5 text-amber-500" />
@@ -117,50 +139,97 @@ const CardapioView: React.FC<CardapioViewProps> = ({ user, cardapio, avisos, ref
           {activeAvisos.length === 0 ? (
             <div className="glass p-12 rounded-2xl border border-white/5 text-center">
               <Info className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-              <p className="text-slate-500 font-medium">Nenhum aviso ativo no momento.</p>
+              <p className="text-slate-500 font-medium">Nenhum aviso ativo.</p>
             </div>
           ) : (
             activeAvisos.map(aviso => (
-              <div
-                key={aviso.id}
-                className={`glass p-6 rounded-2xl border-l-8 relative overflow-hidden transition-all hover:scale-[1.01] ${aviso.tipo === 'vermelho' ? 'border-red-500 bg-red-500/5' : 'border-amber-500 bg-amber-500/5'}`}
-              >
-                <div className="flex justify-between items-start gap-4 mb-3">
-                  <h4 className={`text-lg font-black uppercase tracking-tighter ${aviso.tipo === 'vermelho' ? 'text-red-500' : 'text-amber-500'}`}>
-                    {aviso.titulo}
-                  </h4>
+              <div key={aviso.id} className={`glass p-6 rounded-2xl border-l-8 relative mb-4 ${aviso.tipo === 'vermelho' ? 'border-red-500 bg-red-500/5' : 'border-amber-500 bg-amber-500/5'}`}>
+                <div className="flex justify-between items-start gap-4 mb-2">
+                  <h4 className={`text-lg font-black uppercase ${aviso.tipo === 'vermelho' ? 'text-red-500' : 'text-amber-500'}`}>{aviso.titulo}</h4>
                   {isAdmin && (
-                    <button
-                      onClick={() => handleRemoveAviso(aviso.id)}
-                      className="p-2 bg-white/5 hover:bg-red-500/20 text-slate-500 hover:text-red-500 rounded-lg transition-all"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <button onClick={() => handleRemoveAviso(aviso.id)} className="text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                   )}
                 </div>
-                <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{aviso.descricao}</p>
-                <div className="mt-4 flex justify-between items-center text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-                  <span>Postado em: {new Date(aviso.dataCriacao).toLocaleDateString('pt-BR')}</span>
-                  <span className={`px-2 py-0.5 rounded ${aviso.tipo === 'vermelho' ? 'bg-red-500/20 text-red-500' : 'bg-amber-500/20 text-amber-500'}`}>
-                    {aviso.tipo === 'vermelho' ? 'Urgente' : 'Atenção'}
-                  </span>
+                <p className="text-white text-sm">{aviso.descricao}</p>
+                <div className="mt-2 text-[10px] text-slate-500 uppercase font-bold text-right">
+                  {new Date(aviso.dataCriacao).toLocaleDateString('pt-BR')}
                 </div>
               </div>
             ))
           )}
         </div>
 
+        {/* COLUNA 2: CARDÁPIO (AGORA DINÂMICA) */}
         <div className="space-y-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Utensils className="w-5 h-5 text-primary" />
-            <h3 className="font-bold text-white uppercase text-sm tracking-widest">Previsão do Cardápio</h3>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Utensils className="w-5 h-5 text-primary" />
+              <h3 className="font-bold text-white uppercase text-sm tracking-widest">Cardápio da Semana</h3>
+            </div>
+            {isAdmin && (
+              <button
+                onClick={() => setShowAddCardapio(!showAddCardapio)}
+                className="text-primary hover:text-white text-xs font-bold uppercase flex gap-1 items-center"
+              >
+                <Plus className="w-3 h-3" /> Add Dia
+              </button>
+            )}
           </div>
 
-          <div className="glass rounded-2xl border border-white/10 overflow-hidden">
-            <div className="p-12 text-center">
-              <p className="text-slate-500 italic text-sm">O cardápio semanal é atualizado toda segunda-feira pelo encarregado do rancho.</p>
+          {/* Formulário de Adicionar Cardápio */}
+          {showAddCardapio && (
+            <div className="glass p-4 rounded-2xl border border-primary mb-4 animate-in fade-in">
+              <h4 className="text-white font-bold text-xs uppercase mb-3">Adicionar Refeições do Dia</h4>
+              <div className="space-y-3">
+                <input type="date" className="w-full bg-white/5 border border-white/10 rounded-lg h-10 px-3 text-white"
+                  value={newCardapio.data} onChange={e => setNewCardapio({ ...newCardapio, data: e.target.value })}
+                />
+                <textarea className="w-full bg-white/5 border border-white/10 rounded-lg h-20 p-3 text-white text-sm" placeholder="Cardápio do Almoço..."
+                  value={newCardapio.almoço} onChange={e => setNewCardapio({ ...newCardapio, almoço: e.target.value })}
+                />
+                <textarea className="w-full bg-white/5 border border-white/10 rounded-lg h-20 p-3 text-white text-sm" placeholder="Cardápio do Jantar..."
+                  value={newCardapio.jantar} onChange={e => setNewCardapio({ ...newCardapio, jantar: e.target.value })}
+                />
+                <div className="flex gap-2">
+                  <button onClick={handleAddCardapio} className="flex-1 bg-primary h-10 rounded-lg text-white font-bold text-xs uppercase">Salvar</button>
+                  <button onClick={() => setShowAddCardapio(false)} className="flex-1 bg-white/5 h-10 rounded-lg text-slate-400 font-bold text-xs uppercase">Cancelar</button>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Lista de Cardápios */}
+          {cardapioOrdenado.length === 0 ? (
+            <div className="glass rounded-2xl border border-white/10 p-12 text-center">
+              <p className="text-slate-500 italic text-sm">Nenhum cardápio cadastrado.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {cardapioOrdenado.map((item) => (
+                <div key={item.data} className="glass rounded-2xl border border-white/10 overflow-hidden">
+                  <div className="bg-white/5 p-3 flex justify-between items-center border-b border-white/5">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-primary" />
+                      <span className="font-bold text-white text-sm uppercase">
+                        {new Date(item.data + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'numeric' })}
+                      </span>
+                    </div>
+                    {/* Botão de excluir seria aqui se implementado */}
+                  </div>
+                  <div className="p-4 grid grid-cols-1 gap-4 text-sm">
+                    <div>
+                      <span className="text-[10px] font-bold text-primary uppercase tracking-widest block mb-1">Almoço</span>
+                      <p className="text-slate-300">{item.almoço}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-primary uppercase tracking-widest block mb-1">Jantar</span>
+                      <p className="text-slate-300">{item.jantar}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

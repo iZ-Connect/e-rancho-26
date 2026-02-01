@@ -1,22 +1,25 @@
-import { ref, get, set, update, remove, push, child } from 'firebase/database';
+import { ref, get, set, update, remove, child } from 'firebase/database';
 import { db } from './firebase';
-import { Militar, Arranchamento, Cardapio, Bloqueio } from '../types';
+// Adicionei 'Aviso' nas importações
+import { Militar, Arranchamento, Cardapio, Aviso } from '../types';
 
 export const dbService = {
-  // LOGIN ATUALIZADO PARA FUNCIONAR COM O NOVO BANCO
+
+  // LOGIN (Atualizado para buscar dentro da pasta 'militares')
   async login(cpf: string, pin: string): Promise<Militar> {
     try {
-      const dbRef = ref(db);
-      const snapshot = await get(child(dbRef, '/')); // Busca na raiz
+      // Mudança importante: busca em 'militares', não na raiz '/'
+      const dbRef = ref(db, 'militares');
+      const snapshot = await get(dbRef);
 
       if (snapshot.exists()) {
         const data = snapshot.val();
         const militares = Object.values(data) as any[];
 
-        // Busca flexível: ignora maiúsculas/minúsculas nas chaves e valores
+        // Busca flexível
         const militar = militares.find(m => {
-          const dbCpf = String(m.cpf || m.CPF || '').trim();
-          const dbPin = String(m.pin || m.PIN || '').trim();
+          const dbCpf = String(m.cpf || '').trim();
+          const dbPin = String(m.pin || '').trim();
           return dbCpf === cpf.trim() && dbPin === pin.trim();
         });
 
@@ -24,14 +27,7 @@ export const dbService = {
           if (militar.ativo === false) {
             throw new Error("Usuário inativo. Procure o S1.");
           }
-          // Normaliza o objeto para o formato que o App espera
-          return {
-            ...militar,
-            cpf: String(militar.cpf || militar.CPF),
-            pin: String(militar.pin || militar.PIN),
-            nome_guerra: militar.nome_guerra || militar["Nome de Guerra"] || "Militar",
-            perfil: militar.perfil || militar["Usuário"] || "MILITAR"
-          } as Militar;
+          return militar as Militar;
         }
       }
       throw new Error("CPF ou PIN inválidos.");
@@ -40,14 +36,12 @@ export const dbService = {
     }
   },
 
-  // Busca todos os militares para relatórios e ADM
   async getMilitarByEmail(email: string) {
     const snapshot = await get(child(ref(db), 'militares'));
 
     if (!snapshot.exists()) return null;
 
     const militares = snapshot.val();
-
     const militar = Object.values(militares).find((m: any) =>
       String(m.email || '').toLowerCase() === email.toLowerCase()
     );
@@ -55,7 +49,8 @@ export const dbService = {
     return militar || null;
   },
 
-  // Salva ou remove arranchamento
+  // --- ARRRANCHAMENTOS ---
+
   async toggleArranchamento(arranchamento: Arranchamento, active: boolean) {
     const id = `${arranchamento.militar_cpf}_${arranchamento.data}`;
     const arranchRef = ref(db, `arranchamentos/${id}`);
@@ -70,12 +65,48 @@ export const dbService = {
     }
   },
 
-  // Busca arranchamentos do militar ou geral
   async getArranchamentos(militarCpf?: string): Promise<Arranchamento[]> {
     const snapshot = await get(ref(db, 'arranchamentos'));
     if (snapshot.exists()) {
       const data = Object.values(snapshot.val()) as Arranchamento[];
       return militarCpf ? data.filter(a => a.militar_cpf === militarCpf) : data;
+    }
+    return [];
+  },
+
+  // --- NOVAS FUNÇÕES PARA O CARDÁPIO ---
+
+  async saveCardapio(cardapio: Cardapio) {
+    // Salva usando a data como ID (ex: cardapio/2026-02-01) para evitar duplicatas no mesmo dia
+    const cardapioRef = ref(db, `cardapio/${cardapio.data}`);
+    await set(cardapioRef, cardapio);
+  },
+
+  async getCardapio(): Promise<Cardapio[]> {
+    const snapshot = await get(ref(db, 'cardapio'));
+    if (snapshot.exists()) {
+      return Object.values(snapshot.val()) as Cardapio[];
+    }
+    return [];
+  },
+
+  // --- NOVAS FUNÇÕES PARA AVISOS ---
+
+  async saveAviso(aviso: Aviso) {
+    const avisoRef = ref(db, `avisos/${aviso.id}`);
+    await set(avisoRef, aviso);
+  },
+
+  async deactivateAviso(id: string) {
+    const avisoRef = ref(db, `avisos/${id}`);
+    // Apenas atualiza o campo 'ativo' para false, não apaga o histórico
+    await update(avisoRef, { ativo: false });
+  },
+
+  async getAvisos(): Promise<Aviso[]> {
+    const snapshot = await get(ref(db, 'avisos'));
+    if (snapshot.exists()) {
+      return Object.values(snapshot.val()) as Aviso[];
     }
     return [];
   }
